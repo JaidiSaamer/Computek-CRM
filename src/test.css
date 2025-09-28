@@ -1,0 +1,6 @@
+/* Simple test without Tailwind */
+.test-basic {
+    background-color: yellow;
+    color: black;
+    padding: 20px;
+}
