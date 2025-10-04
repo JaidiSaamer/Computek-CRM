@@ -1,5 +1,3 @@
-import React from "react";
-import "./App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 // import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -59,7 +57,7 @@ const PublicRoute = ({ children }) => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
       </div>
     );
@@ -93,49 +91,49 @@ const AppRoutes = () => {
           <Dashboard />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/orders/create" element={
         <ProtectedRoute>
           <CreateOrder />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/orders" element={
         <ProtectedRoute>
           <OrderList />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/payments/make" element={
         <ProtectedRoute>
           <PaymentMake />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/payments/online" element={
         <ProtectedRoute>
           <PaymentOnline />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/payments" element={
         <ProtectedRoute>
           <OrderList />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/profile" element={
         <ProtectedRoute>
           <Profile />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/support" element={
         <ProtectedRoute>
           <Support />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/downloads" element={
         <ProtectedRoute>
           <Downloads />
@@ -148,19 +146,19 @@ const AppRoutes = () => {
           <UserManagement />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/admin/options" element={
         <ProtectedRoute>
           <OrderOptions />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/admin/inventory" element={
         <ProtectedRoute>
           <Inventory />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/admin/analytics" element={
         <ProtectedRoute>
           <Analytics />
@@ -175,7 +173,7 @@ const AppRoutes = () => {
 
 function App() {
   return (
-    <div className="App">
+    <div>
       <AuthProvider>
         <BrowserRouter>
           <AppRoutes />

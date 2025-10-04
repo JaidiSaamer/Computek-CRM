@@ -1,7 +1,7 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { mockLogin, mockSignup } from '../mocks/mock.js';
-
+import { createContext, useState, useContext, useEffect } from 'react';
+import axios from 'axios';
 const AuthContext = createContext();
+import {apiUrl} from "@/lib/utils"
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -31,47 +31,23 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       setIsLoading(true);
-      const response = await mockLogin(email, password);
+      const response = await axios.post(`${apiUrl}/api/v1/auth/login`, {
+        username: email,
+        password: password
+      });
       
-      if (response.success) {
-        setUser(response.user);
-        setToken(response.token);
-        
+      if (response.data.success) {
+        setUser(response.data.data.user);
+        setToken(response.data.data.token);
         // Store in localStorage
-        localStorage.setItem('computek_user', JSON.stringify(response.user));
-        localStorage.setItem('computek_token', response.token);
-        
+        localStorage.setItem('computek_user', JSON.stringify(response.data.data.user));
+        localStorage.setItem('computek_token', response.data.data.token);
         return { success: true };
       }
     } catch (error) {
       return { 
         success: false, 
         message: error.message || 'Login failed' 
-      };
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const signup = async (userData) => {
-    try {
-      setIsLoading(true);
-      const response = await mockSignup(userData);
-      
-      if (response.success) {
-        setUser(response.user);
-        setToken(response.token);
-        
-        // Store in localStorage
-        localStorage.setItem('computek_user', JSON.stringify(response.user));
-        localStorage.setItem('computek_token', response.token);
-        
-        return { success: true };
-      }
-    } catch (error) {
-      return { 
-        success: false, 
-        message: error.message || 'Signup failed' 
       };
     } finally {
       setIsLoading(false);
@@ -90,7 +66,6 @@ export const AuthProvider = ({ children }) => {
     token,
     isLoading,
     login,
-    signup,
     logout,
     isAuthenticated: !!user
   };

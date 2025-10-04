@@ -15,7 +15,7 @@ const LoginForm = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const { login } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -29,7 +29,7 @@ const LoginForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.email || !formData.password) {
       toast({
         title: "Error",
@@ -40,10 +40,10 @@ const LoginForm = () => {
     }
 
     setIsLoading(true);
-    
+
     try {
       const result = await login(formData.email, formData.password);
-      
+
       if (result.success) {
         toast({
           title: "Success",
@@ -57,7 +57,8 @@ const LoginForm = () => {
           variant: "destructive"
         });
       }
-    } catch (error) {
+    } catch (e) {
+      console.log(e)
       toast({
         title: "Error",
         description: "An error occurred during login",
@@ -69,45 +70,45 @@ const LoginForm = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="h-screen w-full flex items-center justify-center bg-zinc-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Logo and Header */}
-        <div className="text-center">
-          <img 
-            src="./src/assets/CP_logo.png" 
-            alt="Computek Printing" 
-            className="mx-auto h-16 w-auto object-contain mb-4"
+        <div className="flex flex-col justify-center items-center">
+          <img
+            src="./src/assets/CP_logo.png"
+            alt="Computek Printing"
+            className="mx-auto h-16 rounded-xl w-auto object-contain mb-4"
           />
           <h2 className="text-3xl font-bold text-gray-900">Computek Printing</h2>
           <p className="mt-2 text-gray-600 ">Sign in to your account</p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Login</CardTitle>
+        <Card className="flex flex-col gap-8">
+          <CardHeader className="flex flex-col items-center">
+            <CardTitle>Login Now</CardTitle>
             <CardDescription>
-              Enter your email and password to access your account
+              Enter your credentials to access your account
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email">Username</Label>
                 <Input
                   id="email"
                   name="email"
-                  type="email"
+                  type="username"
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="Enter your email"
+                  placeholder="Enter Username"
                   className="mt-1"
                 />
               </div>
 
               <div>
                 <Label htmlFor="password">Password</Label>
-                <div className="relative mt-1">
+                <div className="relative mt-1 mb-6">
                   <Input
                     id="password"
                     name="password"
@@ -132,9 +133,9 @@ const LoginForm = () => {
                 </div>
               </div>
 
-              <Button 
-                type="submit" 
-                className="w-full"
+              <Button
+                type="submit"
+                className="w-full bg-zinc-800 text-white"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -146,29 +147,6 @@ const LoginForm = () => {
                   'Sign In'
                 )}
               </Button>
-
-              <div className="text-center mt-4">
-                <p className="text-sm text-gray-600">
-                  Don't have an account?{' '}
-                  <Link 
-                    to="/signup" 
-                    className="text-gray-900 font-medium hover:underline"
-                  >
-                    Sign up here
-                  </Link>
-                </p>
-              </div>
-
-              {/* Demo Credentials */}
-              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                <p className="text-xs font-medium text-gray-700 mb-2">Demo Credentials:</p>
-                <div className="text-xs text-gray-600 space-y-1">
-                  <p><strong>Client:</strong> john@example.com</p>
-                  <p><strong>Staff:</strong> jane@staff.com</p>
-                  <p><strong>Admin:</strong> admin@computek.com</p>
-                  <p><strong>Password:</strong> password123</p>
-                </div>
-              </div>
             </form>
           </CardContent>
         </Card>

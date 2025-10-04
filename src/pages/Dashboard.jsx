@@ -4,21 +4,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { 
   ShoppingCart, 
   Package, 
-  Users, 
   TrendingUp, 
   Clock,
   CheckCircle,
   AlertCircle,
   DollarSign
 } from 'lucide-react';
-import { mockOrders, mockAnalytics, mockUsers } from '../mocks/mock';
+import { mockOrders, mockAnalytics } from '../mocks/mock';
 
 const Dashboard = () => {
   const { user } = useAuth();
 
   // Get user-specific data
   const getUserOrders = () => {
-    if (user?.role === 'client') {
+    if (user?.userType === 'client') {
       return mockOrders.filter(order => order.clientId === user.id);
     }
     return mockOrders;
@@ -234,12 +233,12 @@ const Dashboard = () => {
           {getGreeting()}, {user?.name}!
         </h1>
         <p className="text-gray-600 mt-1">
-          Welcome to your {user?.role} dashboard at Computek Printing
+          Welcome to your {user?.userType} dashboard at Computek Printing
         </p>
       </div>
 
       {/* Dashboard Content Based on Role */}
-      {user?.role === 'client' ? renderClientDashboard() : renderStaffAdminDashboard()}
+      {user?.userType === 'client' ? renderClientDashboard() : renderStaffAdminDashboard()}
     </div>
   );
 };
