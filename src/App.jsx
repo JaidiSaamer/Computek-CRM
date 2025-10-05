@@ -20,8 +20,6 @@ import Downloads from "./pages/Downloads";
 import UserManagement from "./pages/admin/UserManagement";
 import OrderOptions from "./pages/admin/OrderOptions";
 import Inventory from "./pages/admin/Inventory";
-import Analytics from "./pages/admin/Analytics";
-
 // Layout
 import Sidebar from "./components/layout/Sidebar";
 
@@ -156,12 +154,6 @@ const AppRoutes = () => {
       <Route path="/admin/inventory" element={
         <ProtectedRoute>
           <Inventory />
-        </ProtectedRoute>
-      } />
-
-      <Route path="/admin/analytics" element={
-        <ProtectedRoute>
-          <Analytics />
         </ProtectedRoute>
       } />
 

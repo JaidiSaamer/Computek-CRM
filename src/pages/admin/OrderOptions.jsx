@@ -52,18 +52,11 @@ const OrderOptions = () => {
   const [submitting, setSubmitting] = useState(false);
   const [applicabilityOptions, setApplicabilityOptions] = useState([]);
   const [costItemTypeOptions, setCostItemTypeOptions] = useState([]);
+  const [enumsLoading, setEnumsLoading] = useState(false);
+  const [enumsError, setEnumsError] = useState('');
   const { token } = useAuth();
   const { toast } = useToast();
-
-  // derive counts
-  const counts = {
-    products: products.length,
-    sizes: pageSizes.length,
-    papers: paperConfigs.length,
-    costItems: costItems.length,
-    sheets: sheets.length
-  };
-
+  
   const getCurrentTitle = useCallback(() => {
     switch (activeTab) {
       case 'products': return 'Products';
@@ -146,24 +139,35 @@ const OrderOptions = () => {
     };
   }, [activeTab, fetchDataForTab]);
 
-  useEffect(() => {
-    // fetch enums once
-    const fetchEnums = async () => {
-      if (!token) return;
-      try {
-        const headers = { Authorization: `Bearer ${token}` };
-        const [appRes, costRes] = await Promise.all([
-          axios.get(`${apiUrl}/api/v1/products/applicability`, { headers }),
-          axios.get(`${apiUrl}/api/v1/products/cost-item/enums`, { headers })
-        ]);
-        setApplicabilityOptions(Array.isArray(appRes.data?.data) ? appRes.data.data : []);
-        setCostItemTypeOptions(Array.isArray(costRes.data?.data) ? costRes.data.data : []);
-      } catch (err) {
-        console.warn('Failed fetching enums', err);
+  const fetchEnums = useCallback(async () => {
+    if (!token) return;
+    setEnumsLoading(true);
+    setEnumsError('');
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const [appRes, costRes] = await Promise.all([
+        axios.get(`${apiUrl}/api/v1/products/applicability`, { headers }),
+        axios.get(`${apiUrl}/api/v1/products/cost-item/enums`, { headers })
+      ]);
+      const appData = Array.isArray(appRes.data?.data) ? appRes.data.data : [];
+      const costData = Array.isArray(costRes.data?.data) ? costRes.data.data : [];
+      setApplicabilityOptions(appData);
+      setCostItemTypeOptions(costData);
+      if (appData.length === 0 || costData.length === 0) {
+        setEnumsError('No enum values returned from server');
       }
-    };
+    } catch (err) {
+      console.warn('Failed fetching enums', err);
+      setEnumsError('Failed to load enums');
+      toast({ title: 'Enum Fetch Error', description: 'Could not load applicability or cost item types', variant: 'destructive' });
+    } finally {
+      setEnumsLoading(false);
+    }
+  }, [token, toast]);
+
+  useEffect(() => {
     fetchEnums();
-  }, [token]);
+  }, [fetchEnums]);
 
   const handleItemClick = (item) => {
     if (selectedItem && selectedItem._id === item._id) {
@@ -174,6 +178,9 @@ const OrderOptions = () => {
   };
 
   const openAddModal = async () => {
+    if ((applicabilityOptions.length === 0 || costItemTypeOptions.length === 0) && !enumsLoading) {
+      await fetchEnums();
+    }
     // Ensure dependencies for product form
     if (activeTab === 'products') {
       const headers = { Authorization: `Bearer ${token}` };
@@ -375,7 +382,7 @@ const OrderOptions = () => {
                             {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                           </span>
                           <span className="font-medium text-sm text-gray-800 truncate">
-                            {item.name || item.label || `Item ${item._id}`}
+                            {item.name || item.type || item.label || `Item ${item._id}`}
                           </span>
                           {/* context summary */}
                           <span className="text-[11px] font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded hidden md:inline-block">
@@ -393,14 +400,31 @@ const OrderOptions = () => {
                       {expanded && (
                         <div className="px-8 pb-5 -mt-1 bg-gradient-to-b from-gray-50/40 to-white">
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 text-xs">
-                            {Object.entries(item).filter(([k]) => !['_id', '__v'].includes(k)).map(([k, v]) => (
-                              <div key={k} className="space-y-1">
-                                <div className="text-[10px] uppercase tracking-wide text-gray-500 font-semibold">{k.replace(/([A-Z])/g, ' $1')}</div>
-                                <div className="text-gray-800 font-medium break-all">
-                                  {typeof v === 'object' ? JSON.stringify(v) : String(v)}
-                                </div>
-                              </div>
-                            ))}
+                            {Object.entries(item)
+                              .filter(([k]) => !['_id', '__v'].includes(k))
+                              .map(([k, v]) => {
+                                let displayValue;
+                                if (activeTab === 'products' && ['availableSizes', 'availablePapers', 'costItems'].includes(k) && Array.isArray(v)) {
+                                  const names = v.map(o => {
+                                    if (o == null) return '';
+                                    if (typeof o === 'string') return o; // in case backend already populated with ids only
+                                    return o.name || o.type || o.id || o._id || '';
+                                  }).filter(Boolean);
+                                  displayValue = names.join(', ');
+                                  if (!displayValue) displayValue = '—';
+                                } else if (typeof v === 'object') {
+                                  // Keep objects readable but concise
+                                  displayValue = Array.isArray(v) ? JSON.stringify(v) : JSON.stringify(v);
+                                } else {
+                                  displayValue = String(v);
+                                }
+                                return (
+                                  <div key={k} className="space-y-1">
+                                    <div className="text-[10px] uppercase tracking-wide text-gray-500 font-semibold">{k.replace(/([A-Z])/g, ' $1')}</div>
+                                    <div className="text-gray-800 font-medium break-all">{displayValue}</div>
+                                  </div>
+                                );
+                              })}
                           </div>
                         </div>
                       )}
@@ -442,7 +466,6 @@ const OrderOptions = () => {
             >
               <Icon className={`h-4 w-4 ${active ? 'text-white' : 'text-gray-400 group-hover:text-gray-700'}`} />
               <span>{tab.name}</span>
-              <span className={`min-w-[1.5rem] text-center rounded-full text-[10px] font-semibold px-2 py-1 ${active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600 group-hover:bg-gray-200'}`}>{counts[tab.id]}</span>
             </button>
           );
         })}
@@ -460,6 +483,17 @@ const OrderOptions = () => {
               <button onClick={closeAddModal} className="text-gray-400 hover:text-gray-600 text-sm" disabled={submitting}>✕</button>
             </div>
             <div className="max-h-[60vh] overflow-y-auto pr-1">
+              {enumsLoading && (
+                <div className="mb-4 text-xs text-gray-500 flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full border-2 border-gray-300 border-t-gray-600 animate-spin" /> Loading enums...
+                </div>
+              )}
+              {enumsError && (
+                <div className="mb-4 flex items-center justify-between bg-red-50 border border-red-200 text-red-600 rounded px-3 py-2 text-xs">
+                  <span>{enumsError}</span>
+                  <button type="button" onClick={fetchEnums} className="underline">Retry</button>
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {(fieldConfigs[activeTab] || []).map(f => {
                   if (f.type === 'relation') {
@@ -483,9 +517,10 @@ const OrderOptions = () => {
                             const checked = selectedArr.includes(id);
                             const label = item.name || item.type || item.id || id;
                             return (
-                              <label key={id} className={`flex items-center gap-2 text-[11px] font-medium px-2 py-1 rounded border cursor-pointer select-none ${checked ? 'bg-gray-900 text-white border-gray-900' : 'bg-white hover:bg-gray-100 border-gray-200'}`}>\n                                <input
+                              <label key={id} className={`flex items-center gap-2 text-[11px] font-medium px-2 py-1 rounded border cursor-pointer select-none ${checked ? 'bg-gray-900 text-white border-gray-900' : 'bg-white hover:bg-gray-100 border-gray-200'} ${enumsLoading ? 'opacity-60 pointer-events-none' : ''}`}>\n                                <input
                                 type="checkbox"
                                 className="h-3 w-3"
+                                disabled={enumsLoading}
                                 checked={checked}
                                 onChange={() => toggleRelationValue(f.name, id)}
                               />
@@ -510,8 +545,8 @@ const OrderOptions = () => {
                         <Input type="number" value={formData[f.name] || ''} onChange={e => handleFieldChange(f.name, e.target.value)} className="h-9" />
                       )}
                       {f.type === 'select' && (
-                        <select value={formData[f.name] || ''} onChange={e => handleFieldChange(f.name, e.target.value)} className="h-9 rounded-md border-gray-300 text-sm focus:ring-gray-200">
-                          <option value="">Select...</option>
+                        <select value={formData[f.name] || ''} disabled={enumsLoading} onChange={e => handleFieldChange(f.name, e.target.value)} className="h-9 rounded-md border-gray-300 text-sm focus:ring-gray-200 disabled:bg-gray-100 disabled:cursor-not-allowed">
+                          <option value="">{enumsLoading ? 'Loading...' : 'Select...'}</option>
                           {(f.options || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
                         </select>
                       )}

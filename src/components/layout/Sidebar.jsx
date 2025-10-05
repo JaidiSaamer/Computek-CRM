@@ -64,12 +64,6 @@ const Sidebar = () => {
         path: '/orders',
         icon: FileText,
         roles: ['staff', 'admin']
-      },
-      {
-        label: 'Payments',
-        path: '/payments',
-        icon: CreditCard,
-        roles: ['staff', 'admin']
       }
     ];
 
@@ -91,22 +85,10 @@ const Sidebar = () => {
         path: '/admin/inventory',
         icon: Package,
         roles: ['admin']
-      },
-      {
-        label: 'Analytics',
-        path: '/admin/analytics',
-        icon: BarChart3,
-        roles: ['admin']
       }
     ];
 
     const commonItems = [
-      {
-        label: 'Profile',
-        path: '/profile',
-        icon: User,
-        roles: ['client', 'staff', 'admin']
-      },
       {
         label: 'Support',
         path: '/support',
@@ -117,6 +99,12 @@ const Sidebar = () => {
         label: 'Downloads',
         path: '/downloads',
         icon: Download,
+        roles: ['client', 'staff', 'admin']
+      },
+      {
+        label: 'Profile',
+        path: '/profile',
+        icon: User,
         roles: ['client', 'staff', 'admin']
       }
     ];
@@ -158,8 +146,8 @@ const Sidebar = () => {
               key={item.path}
               to={item.path}
               className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive(item.path)
-                  ? 'bg-gray-900 text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
+                ? 'bg-gray-900 text-white'
+                : 'text-gray-700 hover:bg-gray-100'
                 }`}
             >
               <Icon className="w-5 h-5" />
