@@ -64,6 +64,12 @@ const Sidebar = () => {
         path: '/orders',
         icon: FileText,
         roles: ['staff', 'admin']
+      },
+      {
+        label: 'Automations',
+        path: '/automations',
+        icon: BarChart3,
+        roles: ['staff', 'admin']
       }
     ];
 

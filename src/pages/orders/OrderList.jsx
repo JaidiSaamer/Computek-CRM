@@ -11,7 +11,9 @@ import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, Dialog
 import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { Plus, RefreshCcw, Users, UserCheck, Filter, Loader2 } from 'lucide-react';
+import { Plus, RefreshCcw, UserCheck, PlayCircle, Loader2, Layers } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { startAutomation, getSheets } from '@/services/api/automations';
 
 const statusVariants = {
   PENDING: 'secondary',
@@ -72,6 +74,21 @@ const OrderList = () => {
   });
   const [uploadingFile, setUploadingFile] = useState(false);
   const [filePreview, setFilePreview] = useState(null);
+  // Automation state
+  const [automationDialogOpen, setAutomationDialogOpen] = useState(false);
+  const [selectedForAutomation, setSelectedForAutomation] = useState([]); // array of order ids
+  const [sheets, setSheets] = useState([]);
+  const [loadingSheets, setLoadingSheets] = useState(false);
+  const [creatingAutomation, setCreatingAutomation] = useState(false);
+  const [automationForm, setAutomationForm] = useState({
+    sheetId: '',
+    bleed: '',
+    rotationsAllowed: false,
+    name: '',
+    description: '',
+    type: 'BOTTOM_LEFT_FILL',
+    margins: { top: 0, bottom: 0, left: 0, right: 0 }
+  });
 
   const filteredOrders = useMemo(() => orders.filter(o => {
     const matchStatus = filterStatus === 'ALL' || o.currentStatus === filterStatus;
@@ -112,7 +129,20 @@ const OrderList = () => {
     } catch (err) { toast({ title: 'Error', description: err.message || 'Failed to load products', variant: 'destructive' }); }
   }, [token, toast]);
 
+  const loadSheets = useCallback(async () => {
+    try {
+      setLoadingSheets(true);
+      const res = await getSheets(token);
+      if (res.success) setSheets(res.data); else throw new Error(res.message);
+    } catch (err) {
+      toast({ title: 'Error', description: err.message || 'Failed to load sheets', variant: 'destructive' });
+    } finally { setLoadingSheets(false); }
+  }, [token, toast]);
+
   useEffect(() => { getOrders(); if (user?.userType === 'admin') { getStaffUsers(); } getProducts(); }, [getOrders, getStaffUsers, getProducts, user]);
+
+  // When opening automation dialog, fetch sheets if not loaded
+  useEffect(() => { if (automationDialogOpen && sheets.length === 0) { loadSheets(); } }, [automationDialogOpen, sheets.length, loadSheets]);
 
   const openAssign = (order) => {
     setSelectedOrder(order);
@@ -174,7 +204,7 @@ const OrderList = () => {
       formData.append('file', file);
       const res = await axios.post(`${apiUrl}/api/v1/order/upload`, formData, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } });
       if (res.data.success) {
-        setOrderForm(prev => ({ ...prev, fileUrl: res.data.data.fileUrl, quality: res.data.data.imageValidationData.metadata.quality }));
+        setOrderForm(prev => ({ ...prev, fileUrl: res.data.data.fileUrl, quality: res.data.data.imageValidationData.metadata.density }));
         toast({ title: 'Uploaded', description: 'Design file uploaded' });
       } else throw new Error(res.data.message);
     } catch (err) { toast({ title: 'Error', description: err.message || 'Upload failed', variant: 'destructive' }); }
@@ -214,6 +244,84 @@ const OrderList = () => {
     finally { setCreating(false); }
   };
 
+  const toggleOrderSelect = (orderId) => {
+    setSelectedForAutomation(prev => prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]);
+  };
+
+  const allVisibleIds = useMemo(() => filteredOrders.map(o => o._id), [filteredOrders]);
+  const allSelectedOnPage = allVisibleIds.every(id => selectedForAutomation.includes(id)) && allVisibleIds.length > 0;
+  const toggleSelectAll = () => {
+    if (allSelectedOnPage) {
+      // remove only those currently visible
+      setSelectedForAutomation(prev => prev.filter(id => !allVisibleIds.includes(id)));
+    } else {
+      setSelectedForAutomation(prev => Array.from(new Set([...prev, ...allVisibleIds])));
+    }
+  };
+
+  const openAutomationDialog = () => {
+    if (selectedForAutomation.length < 2) {
+      toast({ title: 'Select Orders', description: 'Select at least two orders to automate', variant: 'destructive' });
+      return;
+    }
+    // Validate all selected orders are ACTIVE
+    const invalid = orders.filter(o => selectedForAutomation.includes(o._id) && o.currentStatus !== 'ACTIVE');
+    if (invalid.length) {
+      toast({ title: 'Invalid Orders', description: 'All selected orders must be ACTIVE', variant: 'destructive' });
+      return;
+    }
+    setAutomationDialogOpen(true);
+  };
+
+  const handleAutomationField = (name, value) => {
+    if (name.startsWith('margins.')) {
+      const key = name.split('.')[1];
+      setAutomationForm(prev => ({ ...prev, margins: { ...prev.margins, [key]: Number(value) || 0 } }));
+    } else {
+      setAutomationForm(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const submitAutomation = async (e) => {
+    e.preventDefault();
+    if (!automationForm.sheetId) { toast({ title: 'Validation', description: 'Select a sheet', variant: 'destructive' }); return; }
+    try {
+      setCreatingAutomation(true);
+      const payload = {
+        orderIds: selectedForAutomation,
+        sheetId: automationForm.sheetId,
+        bleed: automationForm.bleed ? Number(automationForm.bleed) : undefined,
+        rotationsAllowed: Boolean(automationForm.rotationsAllowed),
+        type: automationForm.type,
+        name: automationForm.name || undefined,
+        description: automationForm.description || undefined,
+        margins: automationForm.margins
+      };
+      const res = await startAutomation(token, payload);
+      if (res.success) {
+        toast({ title: 'Automation Started', description: 'Automation process initialized successfully' });
+        setAutomationDialogOpen(false);
+        setAutomationForm({ sheetId: '', bleed: '', rotationsAllowed: false, name: '', description: '', type: 'BOTTOM_LEFT_FILL', margins: { top: 0, bottom: 0, left: 0, right: 0 } });
+        setSelectedForAutomation([]);
+        getOrders();
+      } else throw new Error(res.message);
+    } catch (err) {
+      toast({ title: 'Error', description: err.message || 'Failed to start automation', variant: 'destructive' });
+    } finally { setCreatingAutomation(false); }
+  };
+
+  const approveOrder = async (order) => {
+    try {
+      const res = await axios.patch(`${apiUrl}/api/v1/order/${order._id}/update`, { currentStatus: 'ACTIVE' }, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.data.success) {
+        toast({ title: 'Order Approved', description: 'Order moved to ACTIVE status' });
+        getOrders();
+      } else throw new Error(res.data.message);
+    } catch (err) {
+      toast({ title: 'Error', description: err.message || 'Failed to approve order', variant: 'destructive' });
+    }
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
@@ -245,11 +353,29 @@ const OrderList = () => {
       </Card>
 
       <Card>
-        <CardHeader className="py-4"><CardTitle className="text-sm font-semibold">All Orders ({filteredOrders.length})</CardTitle></CardHeader>
+        <CardHeader className="py-4 flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold">All Orders ({filteredOrders.length})</CardTitle>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" disabled={selectedForAutomation.length < 2} onClick={openAutomationDialog}>
+                <PlayCircle className="h-4 w-4 mr-1" /> Automate ({selectedForAutomation.length})
+              </Button>
+            </div>
+          </div>
+          {selectedForAutomation.length > 0 && (
+            <div className="text-xs text-gray-600 flex items-center gap-2">
+              <span>{selectedForAutomation.length} selected</span>
+              <button type="button" className="underline" onClick={() => setSelectedForAutomation([])}>Clear</button>
+            </div>
+          )}
+        </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           <Table className="min-w-[1000px]">
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8">
+                  <Checkbox checked={allSelectedOnPage} onCheckedChange={toggleSelectAll} aria-label="Select all" />
+                </TableHead>
                 <TableHead>ID</TableHead>
                 <TableHead>Product</TableHead>
                 <TableHead>Qty</TableHead>
@@ -262,11 +388,19 @@ const OrderList = () => {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={8} className="py-10 text-center text-sm text-gray-500">Loading...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="py-10 text-center text-sm text-gray-500">Loading...</TableCell></TableRow>
               ) : filteredOrders.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="py-10 text-center text-sm text-gray-500">No orders found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="py-10 text-center text-sm text-gray-500">No orders found</TableCell></TableRow>
               ) : filteredOrders.map(o => (
                 <TableRow key={o._id} className="hover:bg-gray-50">
+                  <TableCell className="w-8">
+                    <Checkbox
+                      disabled={o.currentStatus !== 'ACTIVE'}
+                      checked={selectedForAutomation.includes(o._id)}
+                      onCheckedChange={() => toggleOrderSelect(o._id)}
+                      aria-label={`Select order ${o._id}`}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono text-xs">{o._id.slice(-8)}</TableCell>
                   <TableCell className="text-sm">{o.orderDetails?.productName}</TableCell>
                   <TableCell className="text-sm">{o.orderDetails?.quantity}</TableCell>
@@ -278,6 +412,11 @@ const OrderList = () => {
                     {user?.userType === 'admin' && (
                       <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openAssign(o)}>
                         <UserCheck className="h-3.5 w-3.5 mr-1" />Assign
+                      </Button>
+                    )}
+                    {user?.userType === 'admin' && o.currentStatus === 'PENDING' && (
+                      <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => approveOrder(o)}>
+                        Approve
                       </Button>
                     )}
                   </TableCell>
@@ -355,7 +494,13 @@ const OrderList = () => {
               </div>
               <div className="space-y-2">
                 <Label>Printing Side *</Label>
-                <Input name="printingSide" value={orderForm.printingSide} onChange={handleOrderField} placeholder="e.g. Single/Double" />
+                <Select value={orderForm.printingSide} onValueChange={(val) => setOrderForm(p => ({ ...p, printingSide: val }))}>
+                  <SelectTrigger><SelectValue placeholder="Select Printing Side" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SINGLE">Single</SelectItem>
+                    <SelectItem value="DOUBLE">Double</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               {/* Finishing Options */}
               <div className="md:col-span-3 pt-2">
@@ -407,14 +552,91 @@ const OrderList = () => {
                   </div>
                 )}
               </div>
-              <div className="space-y-2">
-                <Label>Quality (auto)</Label>
-                <Input value={orderForm.quality} disabled />
-              </div>
             </div>
             <DialogFooter className="flex gap-2 justify-end">
               <Button type="button" variant="outline" onClick={() => { setCreateOpen(false); if (filePreview) URL.revokeObjectURL(filePreview); setFilePreview(null); }}>Cancel</Button>
               <Button type="submit" disabled={creating}>{creating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create Order'}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Automation Dialog */}
+      <Dialog open={automationDialogOpen} onOpenChange={setAutomationDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Start Automation</DialogTitle></DialogHeader>
+          <form onSubmit={submitAutomation} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Sheet *</Label>
+                <Select value={automationForm.sheetId} onValueChange={val => handleAutomationField('sheetId', val)}>
+                  <SelectTrigger><SelectValue placeholder={loadingSheets ? 'Loading...' : 'Select Sheet'} /></SelectTrigger>
+                  <SelectContent>
+                    {sheets.map(s => (
+                      <SelectItem key={s._id} value={s._id}>{s.name || `${s.width}x${s.height}`}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Bleed (mm)</Label>
+                <Input type="number" value={automationForm.bleed} onChange={e => handleAutomationField('bleed', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Algorithm Type *</Label>
+                <Select value={automationForm.type} onValueChange={val => handleAutomationField('type', val)}>
+                  <SelectTrigger><SelectValue placeholder="Select Type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BOTTOM_LEFT_FILL">Bottom Left Fill</SelectItem>
+                    <SelectItem value="SHELF">Shelf (Row-based)</SelectItem>
+                    <SelectItem value="MAX_RECTS">Max Rects (High Efficiency)</SelectItem>
+                    <SelectItem value="GANG">Gang (Interleaved Jobs)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">Allow Rotations
+                  <Checkbox checked={automationForm.rotationsAllowed} onCheckedChange={val => handleAutomationField('rotationsAllowed', !!val)} />
+                </Label>
+              </div>
+              <div className="space-y-2">
+                <Label>Name</Label>
+                <Input value={automationForm.name} onChange={e => handleAutomationField('name', e.target.value)} placeholder="Optional name" />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Description</Label>
+                <textarea className="w-full border rounded-md p-2 text-sm" value={automationForm.description} onChange={e => handleAutomationField('description', e.target.value)} placeholder="Optional description" />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <p className="text-xs font-semibold tracking-wide text-gray-500">Margins (mm)</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {['top', 'bottom', 'left', 'right'].map(m => (
+                    <div key={m} className="space-y-1">
+                      <Label className="capitalize text-xs">{m}</Label>
+                      <Input type="number" value={automationForm.margins[m]} onChange={e => handleAutomationField(`margins.${m}`, e.target.value)} />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 border rounded-md p-3 bg-gray-50 space-y-1">
+                  <p className="text-xs font-semibold text-gray-700">Algorithm Guide</p>
+                  <ul className="text-[11px] leading-relaxed text-gray-600 list-disc pl-4">
+                    <li><span className="font-medium">Bottom Left Fill:</span> Fast general-purpose; good starting point for mixed jobs.</li>
+                    <li><span className="font-medium">Shelf:</span> Use when items share similar heights; stable horizontal rows.</li>
+                    <li><span className="font-medium">Max Rects:</span> Best packing efficiency for varied sizes; slower.</li>
+                    <li><span className="font-medium">Gang:</span> Balances multiple orders; choose when fairness across jobs matters.</li>
+                  </ul>
+                </div>
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <p className="text-xs text-gray-600">Orders Selected: <span className="font-medium">{selectedForAutomation.length}</span></p>
+                <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto border rounded p-2 bg-gray-50">
+                  {selectedForAutomation.map(id => <span key={id} className="text-[10px] font-mono bg-gray-200 px-1.5 py-0.5 rounded">{id.slice(-6)}</span>)}
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="flex gap-2 justify-end">
+              <Button type="button" variant="outline" onClick={() => setAutomationDialogOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={creatingAutomation}>{creatingAutomation ? <Loader2 className="h-4 w-4 animate-spin" /> : <><PlayCircle className="h-4 w-4 mr-1" /> Start</>}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

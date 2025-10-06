@@ -15,6 +15,8 @@ import PaymentOnline from "./pages/payments/PaymentOnline";
 import Profile from "./pages/Profile";
 import Support from "./pages/Support";
 import Downloads from "./pages/Downloads";
+import Automations from "./pages/automations/Automations";
+import AutomationDetail from "./pages/automations/AutomationDetail";
 
 // Admin Pages
 import UserManagement from "./pages/admin/UserManagement";
@@ -135,6 +137,17 @@ const AppRoutes = () => {
       <Route path="/downloads" element={
         <ProtectedRoute>
           <Downloads />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/automations" element={
+        <ProtectedRoute>
+          <Automations />
+        </ProtectedRoute>
+      } />
+      <Route path="/automations/:id" element={
+        <ProtectedRoute>
+          <AutomationDetail />
         </ProtectedRoute>
       } />
 
