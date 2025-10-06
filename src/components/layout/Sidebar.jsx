@@ -1,4 +1,4 @@
-﻿import React from 'react';
+﻿import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, 
@@ -12,7 +12,9 @@ import {
   BarChart3,
   Package,
   HelpCircle,
-  LogOut
+  LogOut,
+  Menu,
+  X
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
@@ -20,6 +22,7 @@ import { Button } from '../ui/button';
 const Sidebar = () => {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const getMenuItems = () => {
     const baseItems = [
@@ -132,8 +135,12 @@ const Sidebar = () => {
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
-  return (
-    <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-screen">
+  const handleLinkClick = () => {
+    setIsMobileMenuOpen(false);
+  };
+
+  const SidebarContent = () => (
+    <>
       {/* Logo Section */}
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center space-x-3">
@@ -157,13 +164,14 @@ const Sidebar = () => {
             <Link
               key={item.path}
               to={item.path}
+              onClick={handleLinkClick}
               className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 isActive(item.path)
                   ? 'bg-gray-900 text-white'
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
-              <Icon className="w-5 h-5" />
+              <Icon className="w-5 h-5 flex-shrink-0" />
               <span>{item.label}</span>
             </Link>
           );
@@ -173,20 +181,76 @@ const Sidebar = () => {
       {/* User Info & Logout */}
       <div className="p-4 border-t border-gray-200">
         <div className="mb-3">
-          <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+          <p className="text-sm font-medium text-gray-900 truncate">{user?.name}</p>
           <p className="text-xs text-gray-600 capitalize">{user?.role}</p>
         </div>
         <Button
           variant="ghost"
           size="sm"
-          onClick={logout}
+          onClick={() => {
+            logout();
+            setIsMobileMenuOpen(false);
+          }}
           className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
         >
           <LogOut className="w-4 h-4 mr-2" />
           Logout
         </Button>
       </div>
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile Header */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 z-40">
+        <div className="flex items-center space-x-3">
+          <img 
+            src="./src/assets/CP_logo.png" 
+            alt="Computek Printing" 
+            className="w-8 h-8 object-contain"
+          />
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">Computek</h2>
+            <p className="text-xs text-gray-600">Printing</p>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2"
+        >
+          {isMobileMenuOpen ? (
+            <X className="h-6 w-6" />
+          ) : (
+            <Menu className="h-6 w-6" />
+          )}
+        </Button>
+      </div>
+
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40 mt-16"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Mobile Sidebar */}
+      <div
+        className={`lg:hidden fixed top-16 left-0 bottom-0 w-64 bg-white border-r border-gray-200 flex flex-col z-40 transform transition-transform duration-300 ease-in-out ${
+          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <SidebarContent />
+      </div>
+
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:flex w-64 bg-white border-r border-gray-200 flex-col h-screen">
+        <SidebarContent />
+      </div>
+    </>
   );
 };
 

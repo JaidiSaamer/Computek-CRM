@@ -35,7 +35,7 @@ export const mockOrders = [
     jobName: 'Business Cards - Tech Corp',
     clientId: 'client1',
     clientName: 'John Doe',
-    status: 'In Production',
+    status: 'Order Placed', // Changed from 'In Production' to 'Order Placed'
     productType: 'Business Cards',
     size: '3.5" x 2"',
     paperType: 'Premium Matt',
@@ -55,7 +55,7 @@ export const mockOrders = [
     jobName: 'Brochure - Marketing Material',
     clientId: 'client1',
     clientName: 'John Doe',
-    status: 'Quality Check',
+    status: 'In Production', // Changed from 'Quality Check' to 'In Production'
     productType: 'Brochure',
     size: 'A4',
     paperType: 'Art Paper',
@@ -68,6 +68,26 @@ export const mockOrders = [
     ],
     courierService: 'DTDC',
     address: '456 Business Ave, Delhi, 110001'
+  },
+  {
+    id: 'ORD003',
+    orderNo: 'CP-2024-003',
+    jobName: 'Flyers - Grand Opening',
+    clientId: 'client1',
+    clientName: 'John Doe',
+    status: 'Quality Check', // This one won't show in payment page (as expected)
+    productType: 'Flyers',
+    size: 'A5',
+    paperType: 'Glossy Paper',
+    quantity: 2000,
+    netAmount: 3200,
+    deliveryDate: '2024-01-25',
+    orderDate: '2024-01-14',
+    files: [
+      { key: 'flyer1.pdf', name: 'Flyer Design.pdf', url: '#' }
+    ],
+    courierService: 'BlueDart',
+    address: '123 Tech Street, Mumbai, 400001'
   }
 ];
 

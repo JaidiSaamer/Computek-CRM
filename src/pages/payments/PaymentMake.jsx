@@ -24,6 +24,15 @@ const PaymentMake = () => {
   const { user } = useAuth();
   const { toast } = useToast();
 
+  // Early return if user is not loaded yet
+  if (!user) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
   // Get user's orders that can be paid
   const getUserOrders = () => {
     if (user?.role === 'client') {
@@ -67,7 +76,7 @@ const PaymentMake = () => {
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      if (file.size > 5 * 1024 * 1024) {
         toast({
           title: "File Too Large",
           description: "Receipt file must be smaller than 5MB",
@@ -134,7 +143,6 @@ const PaymentMake = () => {
     setIsLoading(true);
     
     try {
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       toast({
@@ -142,7 +150,6 @@ const PaymentMake = () => {
         description: `Payment of ₹${formData.amount} for order ${selectedOrder?.orderNo} has been submitted for verification.`
       });
 
-      // Reset form
       setFormData({
         orderId: '',
         paymentMethod: '',
@@ -170,7 +177,6 @@ const PaymentMake = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Payment Form */}
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
@@ -180,7 +186,10 @@ const PaymentMake = () => {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <Label>Select Order *</Label>
-                  <Select value={formData.orderId} onValueChange={(value) => handleSelectChange('orderId', value)}>
+                  <Select 
+                    value={formData.orderId || undefined} 
+                    onValueChange={(value) => handleSelectChange('orderId', value)}
+                  >
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder="Choose order to pay for" />
                     </SelectTrigger>
@@ -190,13 +199,21 @@ const PaymentMake = () => {
                           {order.orderNo} - {order.jobName} (₹{order.netAmount.toLocaleString()})
                         </SelectItem>
                       ))}
+                      {payableOrders.length === 0 && (
+                        <div className="p-2 text-sm text-gray-500 text-center">
+                          No orders available for payment
+                        </div>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div>
                   <Label>Payment Method *</Label>
-                  <Select value={formData.paymentMethod} onValueChange={(value) => handleSelectChange('paymentMethod', value)}>
+                  <Select 
+                    value={formData.paymentMethod || undefined} 
+                    onValueChange={(value) => handleSelectChange('paymentMethod', value)}
+                  >
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder="Select payment method" />
                     </SelectTrigger>
@@ -251,7 +268,6 @@ const PaymentMake = () => {
                   />
                 </div>
 
-                {/* Receipt Upload */}
                 {formData.paymentMethod === 'bank_transfer' && (
                   <div>
                     <Label>Payment Receipt *</Label>
@@ -322,7 +338,6 @@ const PaymentMake = () => {
           </Card>
         </div>
 
-        {/* Order Summary Sidebar */}
         <div>
           <Card className="sticky top-6">
             <CardHeader>
@@ -361,19 +376,17 @@ const PaymentMake = () => {
                 </div>
               ) : (
                 <div className="text-center py-6">
-                  <p className="text-gray-600 text-sm">Select an order to view details</p>
-                </div>
-              )}
-
-              {payableOrders.length === 0 && (
-                <div className="text-center py-6">
-                  <p className="text-gray-600 text-sm">No orders available for payment</p>
+                  <p className="text-gray-600 text-sm">
+                    {payableOrders.length === 0 
+                      ? 'No orders available for payment' 
+                      : 'Select an order to view details'
+                    }
+                  </p>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Payment Tips */}
           <Card className="mt-4">
             <CardHeader>
               <CardTitle>Payment Guidelines</CardTitle>

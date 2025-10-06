@@ -245,7 +245,7 @@ const OrderList = () => {
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Status</SelectItem>
+                  <SelectItem value="all_statuses">All Status</SelectItem>
                   {mockOrderStatuses.map(status => (
                     <SelectItem key={status} value={status}>{status}</SelectItem>
                   ))}

@@ -28,6 +28,31 @@ import Analytics from "./pages/admin/Analytics";
 import Sidebar from "./components/layout/Sidebar";
 
 // Protected Route Component
+// const ProtectedRoute = ({ children }) => {
+//   const { isAuthenticated, isLoading } = useAuth();
+
+//   if (isLoading) {
+//     return (
+//       <div className="min-h-screen flex items-center justify-center">
+//         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+//       </div>
+//     );
+//   }
+
+//   if (!isAuthenticated) {
+//     return <Navigate to="/login" replace />;
+//   }
+
+//   return (
+//     <div className="flex h-screen bg-gray-50">
+//       <Sidebar />
+//       <main className="flex-1 overflow-y-auto">
+//         {children}
+//       </main>
+//     </div>
+//   );
+// };
+
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -46,7 +71,7 @@ const ProtectedRoute = ({ children }) => {
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto pt-16 lg:pt-0">
         {children}
       </main>
     </div>
