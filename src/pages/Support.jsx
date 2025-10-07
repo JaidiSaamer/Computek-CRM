@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
+import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -8,38 +9,76 @@ import { Textarea } from '../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
 import { useToast } from '../hooks/use-toast';
-import { 
-  Plus, 
-  MessageSquare, 
-  Clock, 
-  CheckCircle, 
+import {
+  Plus,
+  MessageSquare,
+  Clock,
+  CheckCircle,
   AlertCircle,
   Phone,
   Mail,
   HelpCircle
 } from 'lucide-react';
-import { mockTickets } from '../mocks/mock';
+import { apiUrl } from "@/lib/utils";
+// Removed mockTickets in favor of live API calls
 
 const Support = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState(null);
+  const [filters, setFilters] = useState({ status: 'all', priority: 'all', search: '' });
   const [formData, setFormData] = useState({
-    title: '',
+    subject: '',
     description: '',
-    priority: 'Medium'
+    priority: 'low'
   });
-  
-  const { user } = useAuth();
+
+  const { user, token } = useAuth();
   const { toast } = useToast();
 
-  // Filter tickets for current user if client
-  const getUserTickets = () => {
-    if (user?.role === 'client') {
-      return mockTickets.filter(ticket => ticket.clientId === user.id);
-    }
-    return mockTickets;
+  const fetchTickets = async () => {
+    setLoading(true); setError(null);
+    try {
+      const res = await axios.get(`${apiUrl}/api/v1/support`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = res.data?.data || [];
+      // If client, filter tickets raised by user
+      const filtered = user?.role === 'client' ? data.filter(t => t.raisedBy === user._id || t.raisedBy?._id === user._id) : data;
+      setTickets(filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+    } catch (e) {
+      console.log(e)
+      setError('Failed to load support tickets');
+      toast({ title: 'Error', description: 'Failed to fetch support tickets', variant: 'destructive' });
+    } finally { setLoading(false); }
   };
 
-  const userTickets = getUserTickets();
+  useEffect(() => {
+    if (token) fetchTickets(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, user?.role]);
+
+  const normalizedTickets = useMemo(() => {
+    return tickets.map(t => ({
+      id: t._id,
+      subject: t.subject,
+      description: t.description,
+      status: t.status,
+      priority: t.priority,
+      raisedBy: t.raisedBy?._id || t.raisedBy,
+      raisedByName: t.raisedBy?.name || t.raisedBy?.email || '—',
+      assignedTo: t.assignedTo?.name || null,
+      createdAt: t.createdAt
+    }));
+  }, [tickets]);
+
+  const filteredTickets = useMemo(() => {
+    return normalizedTickets.filter(t => {
+      if (filters.status !== 'all' && t.status !== filters.status) return false;
+      if (filters.priority !== 'all' && t.priority !== filters.priority) return false;
+      if (filters.search && !(`${t.subject} ${t.description}`.toLowerCase().includes(filters.search.toLowerCase()))) return false;
+      return true;
+    });
+  }, [normalizedTickets, filters]);
 
   const handleChange = (e) => {
     setFormData({
@@ -55,40 +94,44 @@ const Support = () => {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.title || !formData.description) {
+    if (!formData.subject || !formData.description) {
       toast({
         title: "Missing Fields",
-        description: "Please fill in title and description",
+        description: "Please fill in subject and description",
         variant: "destructive"
       });
       return;
     }
-
-    toast({
-      title: "Ticket Created",
-      description: "Your support ticket has been submitted successfully."
-    });
-
-    setFormData({ title: '', description: '', priority: 'Medium' });
-    setShowCreateForm(false);
+    setCreating(true);
+    try {
+      const res = await axios.post(`${apiUrl}/api/v1/support`, formData, { headers: { Authorization: `Bearer ${token}` } });
+      const newTicket = res.data?.data;
+      toast({ title: 'Ticket Created', description: 'Support ticket submitted.' });
+      setTickets(prev => [newTicket, ...prev]);
+      setFormData({ subject: '', description: '', priority: 'low' });
+      setShowCreateForm(false);
+    } catch {
+      toast({ title: 'Create Failed', description: 'Unable to create ticket', variant: 'destructive' });
+    } finally { setCreating(false); }
   };
 
   const getStatusBadge = (status) => {
     const variants = {
-      'Open': 'destructive',
-      'In Progress': 'default',
-      'Resolved': 'secondary'
+      open: 'destructive',
+      in_progress: 'default',
+      resolved: 'secondary',
+      closed: 'secondary'
     };
     return variants[status] || 'secondary';
   };
 
   const getPriorityBadge = (priority) => {
     const variants = {
-      'High': 'destructive',
-      'Medium': 'default',
-      'Low': 'secondary'
+      high: 'destructive',
+      medium: 'default',
+      low: 'secondary'
     };
     return variants[priority] || 'secondary';
   };
@@ -120,27 +163,27 @@ const Support = () => {
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <Label htmlFor="title">Issue Title</Label>
+                    <Label htmlFor="subject">Subject</Label>
                     <Input
-                      id="title"
-                      name="title"
-                      value={formData.title}
+                      id="subject"
+                      name="subject"
+                      value={formData.subject}
                       onChange={handleChange}
-                      placeholder="Brief description of your issue"
+                      placeholder="Brief subject of your issue"
                       className="mt-1"
                     />
                   </div>
 
                   <div>
-                    <Label>Priority Level</Label>
+                    <Label>Priority</Label>
                     <Select value={formData.priority} onValueChange={(value) => handleSelectChange('priority', value)}>
                       <SelectTrigger className="mt-1">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Low">Low - General question</SelectItem>
-                        <SelectItem value="Medium">Medium - Order related</SelectItem>
-                        <SelectItem value="High">High - Urgent issue</SelectItem>
+                        <SelectItem value="low">Low - General question</SelectItem>
+                        <SelectItem value="medium">Medium - Order related</SelectItem>
+                        <SelectItem value="high">High - Urgent issue</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -159,10 +202,10 @@ const Support = () => {
                   </div>
 
                   <div className="flex space-x-3">
-                    <Button type="submit">Submit Ticket</Button>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
+                    <Button type="submit" disabled={creating}>{creating ? 'Creating...' : 'Submit Ticket'}</Button>
+                    <Button
+                      type="button"
+                      variant="outline"
                       onClick={() => setShowCreateForm(false)}
                     >
                       Cancel
@@ -179,7 +222,47 @@ const Support = () => {
               <CardTitle>Your Support Tickets</CardTitle>
             </CardHeader>
             <CardContent>
-              {userTickets.length === 0 ? (
+              <div className="mb-4 flex flex-col md:flex-row gap-3 md:items-end">
+                <div className="flex flex-col w-full md:w-1/3">
+                  <Label htmlFor="search" className="text-xs font-semibold tracking-wide">Search</Label>
+                  <Input id="search" value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))} placeholder="Search subject or description" />
+                </div>
+                <div className="flex gap-3 w-full md:w-auto">
+                  <div className="flex flex-col">
+                    <Label className="text-xs font-semibold tracking-wide">Status</Label>
+                    <Select value={filters.status} onValueChange={v => setFilters(f => ({ ...f, status: v }))}>
+                      <SelectTrigger className="h-9 w-40"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="open">Open</SelectItem>
+                        <SelectItem value="in_progress">In Progress</SelectItem>
+                        <SelectItem value="resolved">Resolved</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col">
+                    <Label className="text-xs font-semibold tracking-wide">Priority</Label>
+                    <Select value={filters.priority} onValueChange={v => setFilters(f => ({ ...f, priority: v }))}>
+                      <SelectTrigger className="h-9 w-32"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="ml-auto flex gap-2">
+                  <Button variant="outline" onClick={fetchTickets} disabled={loading}>{loading ? 'Refreshing...' : 'Refresh'}</Button>
+                </div>
+              </div>
+              {loading ? (
+                <div className="py-8 text-center text-sm text-gray-600">Loading tickets...</div>
+              ) : error ? (
+                <div className="py-8 text-center text-sm text-red-500">{error}</div>
+              ) : filteredTickets.length === 0 ? (
                 <div className="text-center py-8">
                   <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No support tickets</h3>
@@ -190,29 +273,23 @@ const Support = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {userTickets.map(ticket => (
-                    <div key={ticket.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                  {filteredTickets.map(ticket => (
+                    <div key={ticket.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
                       <div className="flex justify-between items-start mb-3">
                         <div>
-                          <h4 className="font-medium text-lg">{ticket.title}</h4>
-                          <p className="text-sm text-gray-600">Ticket ID: {ticket.id}</p>
+                          <h4 className="font-medium text-lg">{ticket.subject}</h4>
+                          <p className="text-sm text-gray-600">ID: {ticket.id}</p>
                         </div>
                         <div className="flex space-x-2">
-                          <Badge variant={getPriorityBadge(ticket.priority)}>
-                            {ticket.priority}
-                          </Badge>
-                          <Badge variant={getStatusBadge(ticket.status)}>
-                            {ticket.status}
-                          </Badge>
+                          <Badge variant={getPriorityBadge(ticket.priority)} className="capitalize">{ticket.priority}</Badge>
+                          <Badge variant={getStatusBadge(ticket.status)} className="capitalize">{ticket.status.replace('_', ' ')}</Badge>
                         </div>
                       </div>
-
-                      <p className="text-gray-700 mb-3">{ticket.description}</p>
-
-                      <div className="flex items-center justify-between text-sm text-gray-600">
-                        <span>Created: {new Date(ticket.createdAt).toLocaleDateString()}</span>
+                      <p className="text-gray-700 mb-3 line-clamp-3">{ticket.description}</p>
+                      <div className="flex items-center flex-wrap gap-3 justify-between text-xs text-gray-600">
+                        <span>Created: {new Date(ticket.createdAt).toLocaleString()}</span>
                         {user?.role !== 'client' && (
-                          <span>Client: {ticket.clientName}</span>
+                          <span>Raised By: {ticket.raisedByName}</span>
                         )}
                       </div>
                     </div>

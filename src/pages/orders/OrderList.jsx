@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Plus, RefreshCcw, UserCheck, PlayCircle, Loader2, Layers } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { startAutomation, getSheets } from '@/services/api/automations';
+// Inline automation-related API calls (removed shared automations service)
 
 const statusVariants = {
   PENDING: 'secondary',
@@ -132,8 +132,8 @@ const OrderList = () => {
   const loadSheets = useCallback(async () => {
     try {
       setLoadingSheets(true);
-      const res = await getSheets(token);
-      if (res.success) setSheets(res.data); else throw new Error(res.message);
+      const res = await axios.get(`${apiUrl}/api/v1/products/sheets`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.data.success) setSheets(res.data.data); else throw new Error(res.data.message);
     } catch (err) {
       toast({ title: 'Error', description: err.message || 'Failed to load sheets', variant: 'destructive' });
     } finally { setLoadingSheets(false); }
@@ -297,14 +297,14 @@ const OrderList = () => {
         description: automationForm.description || undefined,
         margins: automationForm.margins
       };
-      const res = await startAutomation(token, payload);
-      if (res.success) {
+      const res = await axios.post(`${apiUrl}/api/v1/automate`, payload, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.data.success) {
         toast({ title: 'Automation Started', description: 'Automation process initialized successfully' });
         setAutomationDialogOpen(false);
         setAutomationForm({ sheetId: '', bleed: '', rotationsAllowed: false, name: '', description: '', type: 'BOTTOM_LEFT_FILL', margins: { top: 0, bottom: 0, left: 0, right: 0 } });
         setSelectedForAutomation([]);
         getOrders();
-      } else throw new Error(res.message);
+      } else throw new Error(res.data.message);
     } catch (err) {
       toast({ title: 'Error', description: err.message || 'Failed to start automation', variant: 'destructive' });
     } finally { setCreatingAutomation(false); }
@@ -319,6 +319,19 @@ const OrderList = () => {
       } else throw new Error(res.data.message);
     } catch (err) {
       toast({ title: 'Error', description: err.message || 'Failed to approve order', variant: 'destructive' });
+    }
+  };
+
+  const cancelOrder = async (order) => {
+    if (!window.confirm('Are you sure you want to cancel this order?')) return;
+    try {
+      const res = await axios.patch(`${apiUrl}/api/v1/order/${order._id}/update`, { currentStatus: 'CANCELLED' }, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.data.success) {
+        toast({ title: 'Order Cancelled', description: 'Order moved to CANCELLED status' });
+        getOrders();
+      } else throw new Error(res.data.message);
+    } catch (err) {
+      toast({ title: 'Error', description: err.message || 'Failed to cancel order', variant: 'destructive' });
     }
   };
 
@@ -409,7 +422,7 @@ const OrderList = () => {
                   <TableCell className="text-xs">{o.raisedTo?.username || <span className="text-gray-400">Unassigned</span>}</TableCell>
                   <TableCell className="text-xs">{new Date(o.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right space-x-2">
-                    {user?.userType === 'admin' && (
+                    {user?.userType === 'admin' && !o.raisedTo && (
                       <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openAssign(o)}>
                         <UserCheck className="h-3.5 w-3.5 mr-1" />Assign
                       </Button>
@@ -417,6 +430,11 @@ const OrderList = () => {
                     {user?.userType === 'admin' && o.currentStatus === 'PENDING' && (
                       <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => approveOrder(o)}>
                         Approve
+                      </Button>
+                    )}
+                    {user?.userType === 'admin' && ['PENDING', 'ACTIVE'].includes(o.currentStatus) && (
+                      <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => cancelOrder(o)}>
+                        Cancel
                       </Button>
                     )}
                   </TableCell>

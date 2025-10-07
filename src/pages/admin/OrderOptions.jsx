@@ -56,7 +56,7 @@ const OrderOptions = () => {
   const [enumsError, setEnumsError] = useState('');
   const { token } = useAuth();
   const { toast } = useToast();
-  
+
   const getCurrentTitle = useCallback(() => {
     switch (activeTab) {
       case 'products': return 'Products';
@@ -207,8 +207,8 @@ const OrderOptions = () => {
     sizes: [
       { name: 'id', label: 'ID', type: 'text', required: true },
       { name: 'name', label: 'Name', type: 'text', required: true },
-      { name: 'width', label: 'Width (mm)', type: 'number', required: true },
-      { name: 'height', label: 'Height (mm)', type: 'number', required: true },
+      { name: 'width', label: 'Width (px)', type: 'number', required: true },
+      { name: 'height', label: 'Height (px)', type: 'number', required: true },
       { name: 'applicability', label: 'Applicability', type: 'select', options: applicabilityOptions, required: true },
       { name: 'associatedCost', label: 'Associated Cost', type: 'number', required: true }
     ],
@@ -228,8 +228,8 @@ const OrderOptions = () => {
     ],
     sheets: [
       { name: 'name', label: 'Name', type: 'text', required: true },
-      { name: 'width', label: 'Width (mm)', type: 'number', required: true },
-      { name: 'height', label: 'Height (mm)', type: 'number', required: true }
+      { name: 'width', label: 'Width (px)', type: 'number', required: true },
+      { name: 'height', label: 'Height (px)', type: 'number', required: true }
     ],
     products: [
       { name: 'id', label: 'ID', type: 'text', required: true },
@@ -293,6 +293,75 @@ const OrderOptions = () => {
 
   const handleFieldChange = (name, value) => {
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Unit conversion utilities
+  const MM_PER_INCH = 25.4;
+  const PX_PER_INCH = 96; // assumed screen / working DPI
+  const convertToPx = (val, unit) => {
+    const num = parseFloat(val);
+    if (isNaN(num)) return '';
+    switch (unit) {
+      case 'mm': return ((num / MM_PER_INCH) * PX_PER_INCH).toFixed(2);
+      case 'cm': return (((num * 10) / MM_PER_INCH) * PX_PER_INCH).toFixed(2);
+      case 'in': return (num * PX_PER_INCH).toFixed(2);
+      case 'pt': return ((num / 72) * PX_PER_INCH).toFixed(2);
+      default: return num.toString();
+    }
+  };
+
+  const ConversionWidget = ({ targetWidth = 'width', targetHeight = 'height' }) => {
+    const [val, setVal] = useState('');
+    const [unit, setUnit] = useState('mm');
+    const px = convertToPx(val, unit);
+    return (
+      <div className="col-span-1 sm:col-span-2 border rounded-md p-3 bg-white/50 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-600">Size Converter</div>
+          <div className="text-[10px] text-gray-500">Convert {unit} → px (assumed 96dpi)</div>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <input
+            className="col-span-1 h-9 rounded-md border border-gray-300 px-2 text-sm"
+            placeholder="Value"
+            value={val}
+            onChange={e => setVal(e.target.value)}
+          />
+          <select
+            className="col-span-1 h-9 rounded-md border border-gray-300 text-sm"
+            value={unit}
+            onChange={e => setUnit(e.target.value)}
+          >
+            <option value="mm">mm</option>
+            <option value="cm">cm</option>
+            <option value="in">in</option>
+            <option value="pt">pt</option>
+          </select>
+          <input
+            className="col-span-1 h-9 rounded-md border border-gray-300 px-2 text-sm bg-gray-100"
+            value={px}
+            readOnly
+          />
+        </div>
+        <div className="flex gap-2 text-[10px]">
+          <button
+            type="button"
+            className="px-2 py-1 rounded bg-gray-900 text-white hover:bg-gray-800"
+            onClick={() => { if (px) handleFieldChange(targetWidth, px); }}
+          >Set Width</button>
+          <button
+            type="button"
+            className="px-2 py-1 rounded bg-gray-900 text-white hover:bg-gray-800"
+            onClick={() => { if (px) handleFieldChange(targetHeight, px); }}
+          >Set Height</button>
+          <button
+            type="button"
+            className="px-2 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 ml-auto"
+            onClick={() => { setVal(''); setUnit('mm'); }}
+          >Reset</button>
+        </div>
+      </div>
+    );
   };
 
   const toggleRelationValue = (field, value) => {
@@ -535,6 +604,7 @@ const OrderOptions = () => {
                   }
                   // existing non-relation rendering follows
                   const spanClass = f.type === 'textarea' ? 'sm:col-span-2' : '';
+                  const isSizeContext = ['sizes', 'sheets'].includes(activeTab) && (f.name === 'width' || f.name === 'height');
                   return (
                     <div key={f.name} className={`flex flex-col gap-1 col-span-1 ${spanClass}`}>
                       <label className="text-[11px] font-semibold uppercase tracking-wide text-gray-600">{f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}</label>
@@ -560,6 +630,11 @@ const OrderOptions = () => {
                       )}
                       {f.type === 'textarea' && (
                         <textarea value={formData[f.name] || ''} onChange={e => handleFieldChange(f.name, e.target.value)} className="rounded-md border-gray-300 text-sm focus:ring-gray-200 min-h-[90px] resize-y" />
+                      )}
+                      {isSizeContext && f.name === 'height' && (
+                        <div className="mt-2">
+                          <ConversionWidget />
+                        </div>
                       )}
                       {formErrors[f.name] && <span className="text-xs text-red-500">{formErrors[f.name]}</span>}
                     </div>

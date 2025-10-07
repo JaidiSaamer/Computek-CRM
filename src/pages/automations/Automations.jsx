@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { getAutomations } from '@/services/api/automations';
+import axios from 'axios';
+import { apiUrl } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -19,8 +20,8 @@ const Automations = () => {
     const loadAutomations = useCallback(async () => {
         try {
             setLoading(true);
-            const res = await getAutomations(token);
-            if (res.success) setAutomations(res.data); else throw new Error(res.message);
+            const res = await axios.get(`${apiUrl}/api/v1/automate`, { headers: { Authorization: `Bearer ${token}` } });
+            if (res.data.success) setAutomations(res.data.data); else throw new Error(res.data.message);
         } catch (err) {
             toast({ title: 'Error', description: err.message || 'Failed to load automations', variant: 'destructive' });
         } finally { setLoading(false); }

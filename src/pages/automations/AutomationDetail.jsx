@@ -2,7 +2,8 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { getAutomation } from '@/services/api/automations';
+import axios from 'axios';
+import { apiUrl } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Packery from 'packery';
@@ -24,8 +25,8 @@ const AutomationDetail = () => {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await getAutomation(token, id);
-      if (res.success) setData(res.data); else throw new Error(res.message);
+      const res = await axios.get(`${apiUrl}/api/v1/automate/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.data.success) setData(res.data.data); else throw new Error(res.data.message);
     } catch (err) {
       toast({ title: 'Error', description: err.message || 'Failed to load automation', variant: 'destructive' });
     } finally { setLoading(false); }
@@ -53,6 +54,7 @@ const AutomationDetail = () => {
   const sheetWidth = layout?.sheetDetails?.sheetWidth || 0;
   const sheetHeight = layout?.sheetDetails?.sheetHeight || 0;
   const items = layout?.placedItems || [];
+  const fileUrlMap = (data?.automationData?.orderForResponse || []).reduce((acc, cur) => { acc[cur.orderId] = cur.fileUrl; return acc; }, {});
 
   // Compute scale to fit into viewport width (max 1000px area) while preserving aspect ratio
   const maxRenderWidth = 1000;
@@ -86,17 +88,31 @@ const AutomationDetail = () => {
                 const top = (item.y) * scale;
                 const w = (item.actualWidth) * scale;
                 const h = (item.actualHeight) * scale;
+                const imgUrl = fileUrlMap[item.orderId];
                 return (
                   <div
                     key={i}
-                    className='layout-item absolute rounded-sm border border-gray-700/60 bg-gradient-to-br from-gray-200 to-gray-100 shadow text-[10px] flex flex-col'
+                    className='layout-item absolute rounded-sm border border-gray-700/60 bg-white shadow overflow-hidden group'
                     style={{ left, top, width: w, height: h }}
-                    title={`Order ${item.orderId} (${item.actualWidth}x${item.actualHeight}) pos(${item.x},${item.y}) rot:${item.rotation}`}
+                    title={`Order ${item.orderId} (${item.actualWidth}x{item.actualHeight}) pos(${item.x},${item.y}) rot:${item.rotation}`}
                   >
-                    <div className='px-1 py-0.5 flex-1 flex flex-col justify-between'>
-                      <div className='font-mono truncate'>#{item.orderId?.slice(-6)}</div>
-                      <div className='text-[9px] text-gray-600'>{item.actualWidth}x{item.actualHeight}</div>
-                      {item.rotation ? <div className='text-[9px] text-blue-600'>rot {item.rotation}°</div> : null}
+                    {imgUrl ? (
+                      <img
+                        src={imgUrl}
+                        alt={item.orderId}
+                        className='w-full h-full object-contain transition-transform duration-300'
+                        style={{ transform: item.rotation ? `rotate(${item.rotation}deg)` : 'none' }}
+                        draggable={false}
+                      />
+                    ) : (
+                      <div className='h-full w-full bg-gradient-to-br from-gray-200 to-gray-100 flex flex-col text-[10px] p-1'>
+                        <div className='font-mono truncate'>#{item.orderId?.slice(-6)}</div>
+                        <div className='text-[9px] text-gray-600 mt-auto'>{item.actualWidth}x{item.actualHeight}</div>
+                        {item.rotation ? <div className='text-[9px] text-blue-600'>rot {item.rotation}°</div> : null}
+                      </div>
+                    )}
+                    <div className='absolute inset-x-0 bottom-0 bg-black/60 text-[9px] text-white px-1 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity'>
+                      #{item.orderId?.slice(-6)} • {item.actualWidth}x{item.actualHeight}{item.rotation ? ` • rot ${item.rotation}` : ''}
                     </div>
                   </div>
                 );
