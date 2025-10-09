@@ -30,6 +30,12 @@ const Downloads = () => {
   const { toast } = useToast();
   const { user, token } = useAuth();
 
+  console.log('=== USER DEBUG ===');
+  console.log('User object:', user);
+  console.log('User role:', user?.role);
+  console.log('Is client?:', user?.role === 'client');
+  console.log('==================');
+
   const ALLOWED_MIME = ['image/jpeg', 'image/png', 'application/pdf', 'application/zip'];
 
   const fetchDownloads = async () => {
@@ -112,7 +118,7 @@ const Downloads = () => {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Downloads</h1>
         <p className="text-gray-600 mt-1">Access templates, guidelines, and resources</p>
-        {user?.role !== 'client' && (
+        {user?.userType !== 'client' && (
           <Button className="mt-4" size="sm" onClick={() => setShowCreate(v => !v)}>
             {showCreate ? 'Close' : 'Add Download'}
           </Button>
@@ -120,7 +126,7 @@ const Downloads = () => {
       </div>
 
       {/* Create Section */}
-      {showCreate && user?.role !== 'client' && (
+      {showCreate && user?.userType !== 'client' && (
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>Add Download</CardTitle>
