@@ -142,6 +142,104 @@ const OrderList = () => {
 
   useEffect(() => { getOrders(); if (user?.userType === 'admin') { getStaffUsers(); } getProducts(); }, [getOrders, getStaffUsers, getProducts, user]);
 
+  const calculateOrderPrice = useCallback(() => {
+    if (!orderForm.quantity || !selectedProduct) return '0';
+
+    const product = products.find(p => p._id === selectedProduct);
+    if (!product) return '0';
+
+    let totalPrice = 0;
+    const quantity = parseInt(orderForm.quantity) || 0;
+
+    // Base price from product
+    const basePrice = product.basePrice || 0;
+    totalPrice += basePrice * quantity;
+
+    // Paper cost
+    if (orderForm.paperConfig) {
+      const [paperType, paperGsm] = orderForm.paperConfig.split('-');
+      const paper = product.availablePapers?.find(
+        p => p.type === paperType && p.gsm === parseInt(paperGsm)
+      );
+      if (paper && paper.pricePerUnit) {
+        totalPrice += paper.pricePerUnit * quantity;
+      }
+    }
+
+    // Size cost (if applicable)
+    if (orderForm.width && orderForm.height) {
+      const area = (parseFloat(orderForm.width) * parseFloat(orderForm.height)) / 10000; // Convert to sq meters
+      const sizeCostPerSqM = product.sizeCostPerSqM || 50;
+      totalPrice += area * sizeCostPerSqM * quantity;
+    }
+
+    // Printing side cost
+    if (orderForm.printingSide === 'DOUBLE') {
+      const doubleSideCost = product.doubleSideCost || 0.5;
+      totalPrice += doubleSideCost * quantity;
+    }
+
+    // Cost items (Finishing options)
+    costItemDefinitions.forEach(def => {
+      const fieldValue = orderForm[def.field];
+      if (fieldValue) {
+        const costItem = product.costItems?.find(
+          ci => ci.type === def.enum && ci.value === fieldValue
+        );
+        if (costItem && costItem.price) {
+          totalPrice += costItem.price * quantity;
+        }
+      }
+    });
+
+    return totalPrice.toFixed(2);
+  }, [orderForm, selectedProduct, products, costItemDefinitions]);
+
+  // Alternative simpler version if your backend doesn't provide detailed pricing
+  const calculateSimpleOrderPrice = useCallback(() => {
+    if (!orderForm.quantity || !orderForm.productName) return '0';
+
+    const quantity = parseInt(orderForm.quantity) || 0;
+
+    // Base pricing per product type
+    const basePrices = {
+      'Business Cards': 2.5,
+      'Brochures': 8,
+      'Banners': 15,
+      'Leaflets': 3,
+      'Handbills': 2,
+      'Pamphlets': 4,
+      'Letter Heads': 5,
+      'Invitation Cards': 6,
+      'Envelopes': 3,
+      'Books': 25,
+      'Posters': 12,
+      'Flyers': 3
+    };
+
+    let basePrice = basePrices[orderForm.productName] || 5;
+    let totalPrice = basePrice * quantity;
+
+    // Add cost for double-sided printing (20% extra)
+    if (orderForm.printingSide === 'DOUBLE') {
+      totalPrice *= 1.2;
+    }
+
+    // Add cost for finishing options (₹0.5 per item per finishing)
+    const finishingOptions = [
+      orderForm.foldingType,
+      orderForm.laminationType,
+      orderForm.uvType,
+      orderForm.foilType,
+      orderForm.dieType,
+      orderForm.textureType
+    ].filter(Boolean);
+
+    totalPrice += finishingOptions.length * 0.5 * quantity;
+
+    return totalPrice.toFixed(2);
+  }, [orderForm]);
+
   // When opening automation dialog, fetch sheets if not loaded
   useEffect(() => { if (automationDialogOpen && sheets.length === 0) { loadSheets(); } }, [automationDialogOpen, sheets.length, loadSheets]);
 
@@ -472,207 +570,218 @@ const OrderList = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Create Order Dialog - UPDATED WITH ORDER SUMMARY */}
-<Dialog open={createOpen} onOpenChange={setCreateOpen}>
-  <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-    <DialogHeader><DialogTitle>New Order</DialogTitle></DialogHeader>
-    <form onSubmit={submitCreateOrder}>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Form - 2/3 width */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader><CardTitle>Product Details</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2 md:col-span-1">
-                  <Label>Product *</Label>
-                  <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                    <SelectTrigger><SelectValue placeholder="Select Product" /></SelectTrigger>
-                    <SelectContent>
-                      {products.map(p => <SelectItem key={p._id} value={p._id}>{p.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Size *</Label>
-                  <Select onValueChange={(val) => {
-                    const size = productMeta.sizes.find(s => s._id === val); 
-                    if (size) { 
-                      setOrderForm(prev => ({ ...prev, width: size.width, height: size.height })); 
-                    }
-                  }}>
-                    <SelectTrigger><SelectValue placeholder="Select Size" /></SelectTrigger>
-                    <SelectContent>
-                      {productMeta.sizes.map(sz => (
-                        <SelectItem key={sz._id} value={sz._id}>
-                          {sz.name} ({sz.width}x{sz.height})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Paper *</Label>
-                  <Select onValueChange={(val) => setOrderForm(prev => ({ ...prev, paperConfig: val }))}>
-                    <SelectTrigger><SelectValue placeholder="Select Paper" /></SelectTrigger>
-                    <SelectContent>
-                      {productMeta.papers.map(p => (
-                        <SelectItem key={p._id} value={p.type + '-' + p.gsm}>
-                          {p.type} {p.gsm}gsm
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Quantity *</Label>
-                  <Input 
-                    type="number" 
-                    name="quantity" 
-                    value={orderForm.quantity} 
-                    onChange={handleOrderField} 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Printing Side *</Label>
-                  <Select 
-                    value={orderForm.printingSide} 
-                    onValueChange={(val) => setOrderForm(p => ({ ...p, printingSide: val }))}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Select Printing Side" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="SINGLE">Single</SelectItem>
-                      <SelectItem value="DOUBLE">Double</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Finishing Options */}
-          <Card>
-            <CardHeader><CardTitle>Finishing Options</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {costItemDefinitions.map(def => {
-                  const items = productMeta.costItems.filter(c => c.type === def.enum);
-                  if (!items.length) return (
-                    <div key={def.enum} className="space-y-2 opacity-50 cursor-not-allowed">
-                      <Label>{def.label}</Label>
-                      <Select disabled>
-                        <SelectTrigger><SelectValue placeholder="Not Available" /></SelectTrigger>
-                      </Select>
+      {/* Create Order Dialog with Order Summary */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>New Order</DialogTitle></DialogHeader>
+          <form onSubmit={submitCreateOrder}>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Main Form - 2/3 width */}
+              <div className="lg:col-span-2 space-y-6">
+                <Card>
+                  <CardHeader><CardTitle>Product Details</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2 md:col-span-1">
+                        <Label>Product *</Label>
+                        <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                          <SelectTrigger><SelectValue placeholder="Select Product" /></SelectTrigger>
+                          <SelectContent>
+                            {products.map(p => <SelectItem key={p._id} value={p._id}>{p.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Size *</Label>
+                        <Select onValueChange={(val) => {
+                          const size = productMeta.sizes.find(s => s._id === val);
+                          if (size) {
+                            setOrderForm(prev => ({ ...prev, width: size.width, height: size.height }));
+                          }
+                        }}>
+                          <SelectTrigger><SelectValue placeholder="Select Size" /></SelectTrigger>
+                          <SelectContent>
+                            {productMeta.sizes.map(sz => (
+                              <SelectItem key={sz._id} value={sz._id}>
+                                {sz.name} ({sz.width}x{sz.height})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Paper *</Label>
+                        <Select onValueChange={(val) => setOrderForm(prev => ({ ...prev, paperConfig: val }))}>
+                          <SelectTrigger><SelectValue placeholder="Select Paper" /></SelectTrigger>
+                          <SelectContent>
+                            {productMeta.papers.map(p => (
+                              <SelectItem key={p._id} value={p.type + '-' + p.gsm}>
+                                {p.type} {p.gsm}gsm
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Quantity *</Label>
+                        <Input
+                          type="number"
+                          name="quantity"
+                          value={orderForm.quantity}
+                          onChange={handleOrderField}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Printing Side *</Label>
+                        <Select
+                          value={orderForm.printingSide}
+                          onValueChange={(val) => setOrderForm(p => ({ ...p, printingSide: val }))}
+                        >
+                          <SelectTrigger><SelectValue placeholder="Select Printing Side" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="SINGLE">Single</SelectItem>
+                            <SelectItem value="DOUBLE">Double</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                  );
-                  return (
-                    <div key={def.enum} className="space-y-2">
-                      <Label>{def.label} *</Label>
-                      <Select 
-                        value={orderForm[def.field]} 
-                        onValueChange={val => setOrderForm(p => ({ ...p, [def.field]: val }))}
-                      >
-                        <SelectTrigger><SelectValue placeholder={`Select ${def.label}`} /></SelectTrigger>
-                        <SelectContent>
-                          {items.map(ci => (
-                            <SelectItem key={ci._id} value={ci.value}>{ci.value}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+                  </CardContent>
+                </Card>
 
-          {/* Additional Notes & File Upload */}
-          <Card>
-            <CardHeader><CardTitle>Additional Information</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Additional Note *</Label>
-                <textarea 
-                  name="additionalNote" 
-                  value={orderForm.additionalNote} 
-                  onChange={handleOrderField} 
-                  className="w-full border rounded-md p-2 text-sm" 
-                  rows={3}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Design File *</Label>
-                <Input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={(e) => { 
-                    const f = e.target.files[0]; 
-                    if (f) { 
-                      if (filePreview) URL.revokeObjectURL(filePreview); 
-                      setFilePreview(URL.createObjectURL(f)); 
-                      uploadDesignFile(f); 
-                    } 
-                  }} 
-                />
-                {uploadingFile && <p className="text-xs text-gray-500">Uploading...</p>}
-                {orderForm.fileUrl && (
-                  <p className="text-xs text-green-600 truncate">
-                    Uploaded: {orderForm.fileUrl}
-                  </p>
-                )}
-                {filePreview && (
-                  <div className="mt-2 border rounded-md p-2 bg-gray-50">
-                    <p className="text-xs text-gray-600 mb-1">Preview</p>
-                    <img 
-                      src={filePreview} 
-                      alt="Design preview" 
-                      className="max-h-48 rounded object-contain mx-auto" 
-                    />
-                    <div className="flex justify-end mt-2">
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        size="sm" 
-                        className="h-7 px-2 text-xs" 
-                        onClick={() => { 
-                          if (filePreview) URL.revokeObjectURL(filePreview); 
-                          setFilePreview(null); 
-                          setOrderForm(prev => ({ ...prev, fileUrl: '', quality: '' })); 
+                {/* Finishing Options */}
+                <Card>
+                  <CardHeader><CardTitle>Finishing Options</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {costItemDefinitions.map(def => {
+                        const items = productMeta.costItems.filter(c => c.type === def.enum);
+                        if (!items.length) return (
+                          <div key={def.enum} className="space-y-2 opacity-50 cursor-not-allowed">
+                            <Label>{def.label}</Label>
+                            <Select disabled>
+                              <SelectTrigger><SelectValue placeholder="Not Available" /></SelectTrigger>
+                            </Select>
+                          </div>
+                        );
+                        return (
+                          <div key={def.enum} className="space-y-2">
+                            <Label>{def.label} *</Label>
+                            <Select
+                              value={orderForm[def.field]}
+                              onValueChange={val => setOrderForm(p => ({ ...p, [def.field]: val }))}
+                            >
+                              <SelectTrigger><SelectValue placeholder={`Select ${def.label}`} /></SelectTrigger>
+                              <SelectContent>
+                                {items.map(ci => (
+                                  <SelectItem key={ci._id} value={ci.value}>{ci.value}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Additional Notes & File Upload */}
+                <Card>
+                  <CardHeader><CardTitle>Additional Information</CardTitle></CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Additional Note *</Label>
+                      <textarea
+                        name="additionalNote"
+                        value={orderForm.additionalNote}
+                        onChange={handleOrderField}
+                        className="w-full border rounded-md p-2 text-sm"
+                        rows={3}
+                        placeholder="Any special instructions or requirements..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Design File *</Label>
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const f = e.target.files[0];
+                          if (f) {
+                            if (filePreview) URL.revokeObjectURL(filePreview);
+                            setFilePreview(URL.createObjectURL(f));
+                            uploadDesignFile(f);
+                          }
                         }}
-                      >
-                        Remove
-                      </Button>
+                      />
+                      {uploadingFile && (
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span>Uploading...</span>
+                        </div>
+                      )}
+                      {orderForm.fileUrl && (
+                        <p className="text-xs text-green-600 truncate">
+                          ✓ Uploaded: {orderForm.fileUrl.split('/').pop()}
+                        </p>
+                      )}
+                      {filePreview && (
+                        <div className="mt-2 border rounded-md p-2 bg-gray-50">
+                          <p className="text-xs text-gray-600 mb-1">Preview</p>
+                          <img
+                            src={filePreview}
+                            alt="Design preview"
+                            className="max-h-48 rounded object-contain mx-auto"
+                          />
+                          <div className="flex justify-end mt-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => {
+                                if (filePreview) URL.revokeObjectURL(filePreview);
+                                setFilePreview(null);
+                                setOrderForm(prev => ({ ...prev, fileUrl: '', quality: '' }));
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
+                  </CardContent>
+                </Card>
               </div>
-            </CardContent>
-          </Card>
-        </div>
 
-        {/* Order Summary Sidebar - 1/3 width */}
-        <div className="lg:col-span-1">
-          <OrderSummary
-            formData={{
-              productType: orderForm.productName,
-              size: orderForm.width && orderForm.height ? `${orderForm.width}x${orderForm.height}` : '',
-              paperType: orderForm.paperConfig,
-              quantity: orderForm.quantity
-            }}
-            files={orderForm.fileUrl ? [{ name: 'Design File' }] : []}
-            calculateEstimatedPrice={null} // You can add price calculation logic here
-            onSubmit={submitCreateOrder}
-            isLoading={creating}
-            submitButtonText="Create Order"
-            showNotes={true}
-          />
-        </div>
-      </div>
-    </form>
-  </DialogContent>
-</Dialog>
+              {/* Order Summary Sidebar - 1/3 width */}
+              <div className="lg:col-span-1">
+                <OrderSummary
+                  formData={{
+                    productType: orderForm.productName,
+                    size: orderForm.width && orderForm.height
+                      ? `${orderForm.width} x ${orderForm.height} mm`
+                      : '',
+                    paperType: orderForm.paperConfig
+                      ? orderForm.paperConfig.replace('-', ' ')
+                      : '',
+                    quantity: orderForm.quantity,
+                    printingSide: orderForm.printingSide
+                  }}
+                  files={orderForm.fileUrl ? [{ name: 'Design File' }] : []}
+                  calculateEstimatedPrice={calculateOrderPrice}
+                  onSubmit={submitCreateOrder}
+                  isLoading={creating}
+                  submitButtonText="Create Order"
+                  showNotes={true}
+                />
+              </div>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-      
+
 
       {/* Automation Dialog */}
       <Dialog open={automationDialogOpen} onOpenChange={setAutomationDialogOpen}>
