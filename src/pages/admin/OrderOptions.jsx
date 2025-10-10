@@ -56,6 +56,12 @@ const OrderOptions = () => {
   const [enumsError, setEnumsError] = useState('');
   const { token } = useAuth();
   const { toast } = useToast();
+  const [vendors, setVendors] = useState([]);
+  const [qtyEdits, setQtyEdits] = useState({});
+  const [qtySaving, setQtySaving] = useState({});
+  const [qtyEditorOpen, setQtyEditorOpen] = useState({}); // { [itemId]: boolean }
+  const [modalMode, setModalMode] = useState('add');
+  const [editingItem, setEditingItem] = useState(null);
 
   const getCurrentTitle = useCallback(() => {
     switch (activeTab) {
@@ -64,6 +70,7 @@ const OrderOptions = () => {
       case 'papers': return 'Paper Configs';
       case 'costItems': return 'Cost Items';
       case 'sheets': return 'Sheets';
+      case 'vendors': return 'Vendors';
       default: return '';
     }
   }, [activeTab]);
@@ -73,7 +80,8 @@ const OrderOptions = () => {
     { id: 'sizes', name: 'Page Sizes', icon: Ruler },
     { id: 'papers', name: 'Paper Configs', icon: FileText },
     { id: 'costItems', name: 'Cost Items', icon: FileText },
-    { id: 'sheets', name: 'Sheets', icon: Layers }
+    { id: 'sheets', name: 'Sheets', icon: Layers },
+    { id: 'vendors', name: 'Vendors', icon: FileText }
   ];
 
   const fetchDataForTab = useCallback(async (tab, signal) => {
@@ -110,6 +118,12 @@ const OrderOptions = () => {
           const url = `${apiUrl}/api/v1/products/sheets`;
           const res = await axios.get(url, { headers, signal });
           setSheets(Array.isArray(res.data.data) ? res.data.data : []);
+          break;
+        }
+        case 'vendors': {
+          const url = `${apiUrl}/api/v1/vendors`;
+          const res = await axios.get(url, { headers, signal });
+          setVendors(Array.isArray(res.data.data) ? res.data.data : []);
           break;
         }
         default:
@@ -178,6 +192,8 @@ const OrderOptions = () => {
   };
 
   const openAddModal = async () => {
+    setModalMode('add');
+    setEditingItem(null);
     if ((applicabilityOptions.length === 0 || costItemTypeOptions.length === 0) && !enumsLoading) {
       await fetchEnums();
     }
@@ -196,6 +212,15 @@ const OrderOptions = () => {
     }
     setFormErrors({});
     setFormData({});
+    setShowAddModal(true);
+  };
+  const openEditModal = (item) => {
+    setModalMode('edit');
+    setEditingItem(item);
+    const prefill = { ...item };
+    delete prefill._id; delete prefill.__v; delete prefill.createdAt; delete prefill.updatedAt;
+    setFormErrors({});
+    setFormData(prefill);
     setShowAddModal(true);
   };
   const closeAddModal = () => {
@@ -238,6 +263,12 @@ const OrderOptions = () => {
       { name: 'availableSizes', label: 'Available Sizes', type: 'relation', source: 'sizes', required: true },
       { name: 'availablePapers', label: 'Available Papers', type: 'relation', source: 'papers', required: true },
       { name: 'costItems', label: 'Cost Items', type: 'relation', source: 'costItems', required: false }
+    ],
+    vendors: [
+      { name: 'name', label: 'Vendor Name', type: 'text', required: true },
+      { name: 'contactPersonName', label: 'Contact Person', type: 'text', required: true },
+      { name: 'contactPhoneNumber', label: 'Phone Number', type: 'text', required: true },
+      { name: 'gstNumber', label: 'GST Number', type: 'text', required: true }
     ]
   };
 
@@ -246,7 +277,8 @@ const OrderOptions = () => {
     papers: '/api/v1/products/paper-config',
     costItems: '/api/v1/products/cost-item',
     sheets: '/api/v1/products/sheets',
-    products: '/api/v1/products/product'
+    products: '/api/v1/products/product',
+    vendors: '/api/v1/vendors'
   };
 
   const transformPayload = (tab, data) => {
@@ -268,6 +300,9 @@ const OrderOptions = () => {
     }
     if (tab === 'products') {
       // arrays already objectIds selected
+    }
+    if (tab === 'vendors') {
+      // no transform
     }
     return clone;
   };
@@ -293,6 +328,47 @@ const OrderOptions = () => {
 
   const handleFieldChange = (name, value) => {
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Quantity editing helpers for sizes/papers/costItems/sheets
+  const supportsQuantity = (tab) => ['sizes', 'papers', 'costItems', 'sheets'].includes(tab);
+  const onQtyChange = (id, value) => setQtyEdits(prev => ({ ...prev, [id]: value }));
+  const saveQuantity = async (tab, item) => {
+    if (!supportsQuantity(tab)) return;
+    const id = item._id;
+    const newVal = qtyEdits[id] !== undefined ? qtyEdits[id] : item.quantity;
+    const quantity = Number(newVal);
+    if (!Number.isFinite(quantity) || quantity < 0) {
+      toast({ title: 'Invalid quantity', description: 'Enter a non-negative number', variant: 'destructive' });
+      return;
+    }
+    try {
+      setQtySaving(prev => ({ ...prev, [id]: true }));
+      const headers = { Authorization: `Bearer ${token}` };
+      // Build complete update payload matching backend validation per tab
+      let payload = {};
+      if (tab === 'sizes') {
+        const { id: pid, name, width, height, associatedCost, applicability } = item;
+        payload = { id: pid, name, width, height, associatedCost, applicability, quantity };
+      } else if (tab === 'papers') {
+        const { id: pid, type, gsm, associatedCost, applicability } = item;
+        payload = { id: pid, type, gsm, associatedCost, applicability, quantity };
+      } else if (tab === 'costItems') {
+        const { id: pid, type, value, applicability, associatedCost } = item;
+        payload = { id: pid, type, value, applicability, associatedCost, quantity };
+      } else if (tab === 'sheets') {
+        const { name, width, height } = item;
+        payload = { name, width, height, quantity };
+      }
+      await axios.patch(`${apiUrl}${endpointMap[tab]}/${id}`, payload, { headers });
+      toast({ title: 'Quantity updated' });
+      await fetchDataForTab(tab);
+      setQtyEdits(prev => ({ ...prev, [id]: undefined }));
+    } catch (err) {
+      toast({ title: 'Update failed', description: err?.response?.data?.message || 'Could not update quantity', variant: 'destructive' });
+    } finally {
+      setQtySaving(prev => ({ ...prev, [id]: false }));
+    }
   };
 
   // Unit conversion utilities
@@ -381,18 +457,23 @@ const OrderOptions = () => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
       const payload = transformPayload(activeTab, formData);
-      await axios.post(`${apiUrl}${endpointMap[activeTab]}`, payload, { headers });
-      toast({ title: 'Success', description: `${getCurrentTitle().slice(0, -1)} added successfully.` });
+      if (modalMode === 'edit' && editingItem?._id) {
+        await axios.patch(`${apiUrl}${endpointMap[activeTab]}/${editingItem._id}`, payload, { headers });
+        toast({ title: 'Success', description: `${getCurrentTitle().slice(0, -1)} updated successfully.` });
+      } else {
+        await axios.post(`${apiUrl}${endpointMap[activeTab]}`, payload, { headers });
+        toast({ title: 'Success', description: `${getCurrentTitle().slice(0, -1)} added successfully.` });
+      }
       closeAddModal();
       fetchDataForTab(activeTab);
     } catch (err) {
-      toast({ title: 'Error', description: err?.response?.data?.message || 'Failed to add item', variant: 'destructive' });
+      toast({ title: 'Error', description: err?.response?.data?.message || `Failed to ${modalMode === 'edit' ? 'update' : 'add'} item`, variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const dataMap = useMemo(() => ({ products, sizes: pageSizes, papers: paperConfigs, costItems, sheets }), [products, pageSizes, paperConfigs, costItems, sheets]);
+  const dataMap = useMemo(() => ({ products, sizes: pageSizes, papers: paperConfigs, costItems, sheets, vendors }), [products, pageSizes, paperConfigs, costItems, sheets, vendors]);
   const currentItems = useMemo(() => dataMap[activeTab] || [], [dataMap, activeTab]);
   const filteredItems = useMemo(() => {
     if (!search.trim()) return currentItems;
@@ -461,6 +542,23 @@ const OrderOptions = () => {
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
+                          {activeTab === 'vendors' && (
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              <Button size="sm" variant="outline" className="text-[11px] h-7" onClick={() => openEditModal(item)}>Edit</Button>
+                              <Button size="sm" variant="outline" className="text-[11px] h-7" onClick={async () => {
+                                const ok = window.confirm('Delete this vendor?');
+                                if (!ok) return;
+                                try {
+                                  const headers = { Authorization: `Bearer ${token}` };
+                                  await axios.delete(`${apiUrl}${endpointMap['vendors']}/${item._id}`, { headers });
+                                  toast({ title: 'Vendor deleted' });
+                                  fetchDataForTab('vendors');
+                                } catch (err) {
+                                  toast({ title: 'Delete failed', description: err?.response?.data?.message || 'Could not delete vendor', variant: 'destructive' });
+                                }
+                              }}>Delete</Button>
+                            </div>
+                          )}
                           <span className="text-[10px] font-semibold tracking-wide uppercase bg-gray-900 text-white px-2 py-1 rounded">
                             {activeTab.slice(0, 3)}
                           </span>
@@ -468,6 +566,35 @@ const OrderOptions = () => {
                       </button>
                       {expanded && (
                         <div className="px-8 pb-5 -mt-1 bg-gradient-to-b from-gray-50/40 to-white">
+                          {supportsQuantity(activeTab) && (
+                            <div className="mb-4">
+                              {!qtyEditorOpen[item._id] ? (
+                                <Button size="sm" variant="outline" className="h-8" onClick={() => setQtyEditorOpen(prev => ({ ...prev, [item._id]: true }))}>
+                                  Add quantity
+                                </Button>
+                              ) : (
+                                <div className="flex items-center gap-3">
+                                  <div className="text-[11px] uppercase tracking-wide text-gray-600 font-semibold">Quantity</div>
+                                  <Input
+                                    type="number"
+                                    className="h-8 w-32"
+                                    value={qtyEdits[item._id] !== undefined ? qtyEdits[item._id] : (item.quantity ?? '')}
+                                    onChange={(e) => onQtyChange(item._id, e.target.value)}
+                                  />
+                                  <Button size="sm" className="h-8 bg-gray-900 text-white hover:bg-gray-800" disabled={!!qtySaving[item._id]} onClick={async () => {
+                                    await saveQuantity(activeTab, item);
+                                    setQtyEditorOpen(prev => ({ ...prev, [item._id]: false }));
+                                  }}>
+                                    {qtySaving[item._id] ? 'Saving...' : 'Save'}
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="h-8" onClick={() => {
+                                    setQtyEditorOpen(prev => ({ ...prev, [item._id]: false }));
+                                    setQtyEdits(prev => ({ ...prev, [item._id]: undefined }));
+                                  }}>Cancel</Button>
+                                </div>
+                              )}
+                            </div>
+                          )}
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 text-xs">
                             {Object.entries(item)
                               .filter(([k]) => !['_id', '__v'].includes(k))
@@ -546,7 +673,7 @@ const OrderOptions = () => {
           <div className="relative w-full max-w-xl bg-white rounded-xl shadow-lg border p-6 space-y-5 overflow-hidden">
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-lg font-semibold tracking-tight">Add {getCurrentTitle().slice(0, -1)}</h2>
+                <h2 className="text-lg font-semibold tracking-tight">{modalMode === 'edit' ? 'Edit' : 'Add'} {getCurrentTitle().slice(0, -1)}</h2>
                 <p className="text-xs text-gray-500 mt-1">Fill in the required fields below.</p>
               </div>
               <button onClick={closeAddModal} className="text-gray-400 hover:text-gray-600 text-sm" disabled={submitting}>✕</button>

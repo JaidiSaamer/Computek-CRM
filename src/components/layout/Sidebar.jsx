@@ -81,17 +81,11 @@ const Sidebar = () => {
         roles: ['admin']
       },
       {
-        label: 'Order Options',
+        label: 'Inventory',
         path: '/admin/options',
         icon: Settings,
         roles: ['admin']
       },
-      {
-        label: 'Inventory',
-        path: '/admin/inventory',
-        icon: Package,
-        roles: ['admin']
-      }
     ];
 
     const commonItems = [
