@@ -96,7 +96,7 @@ const AutomationDetail = () => {
         windowHeight: sheetEl.scrollHeight
       });
 
-  const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({ orientation: sheetWidth >= sheetHeight ? 'l' : 'p', unit: 'pt', format: 'a4' });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
