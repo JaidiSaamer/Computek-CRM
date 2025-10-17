@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RefreshCcw, Loader2, ExternalLink } from 'lucide-react';
+import { RefreshCcw, Loader2, ExternalLink, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Automations = () => {
@@ -78,16 +78,30 @@ const Automations = () => {
                             ) : filtered.length === 0 ? (
                                 <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-gray-500">No automations found</TableCell></TableRow>
                             ) : filtered.map(a => (
-                                <TableRow key={a._id} className="hover:bg-gray-50 cursor-pointer" asChild>
-                                    <Link to={`/automations/${a._id}`} className="contents">
-                                        <TableCell className="font-mono text-xs flex items-center gap-1">{a._id?.slice(-8)}<ExternalLink className='h-3 w-3 text-gray-400' /></TableCell>
-                                        <TableCell className="text-sm font-medium truncate max-w-[180px]" title={a.name}>{a.name || '—'}</TableCell>
-                                        <TableCell className="text-xs max-w-[280px] truncate" title={a.description}>{a.description || '—'}</TableCell>
-                                        <TableCell className="text-xs">{(a.orders || []).length}</TableCell>
-                                        <TableCell className="text-[11px] uppercase tracking-wide text-gray-700">{a.automationData?.type || '—'}</TableCell>
-                                        <TableCell className="text-xs">{a.automationData?.optimizedLayout?.efficiency ? a.automationData.optimizedLayout.efficiency.toFixed(2) + '%' : '—'}</TableCell>
-                                        <TableCell className="text-xs whitespace-nowrap">{a.createdAt ? new Date(a.createdAt).toLocaleString() : '—'}</TableCell>
-                                    </Link>
+                                <TableRow key={a._id} className="hover:bg-gray-50">
+                                    <TableCell className="font-mono text-xs flex items-center gap-1">
+                                        <Link to={`/automations/${a._id}`} className="inline-flex items-center gap-1">
+                                            {a._id?.slice(-8)}<ExternalLink className='h-3 w-3 text-gray-400' />
+                                        </Link>
+                                    </TableCell>
+                                    <TableCell className="text-sm font-medium truncate max-w-[180px]" title={a.name}>{a.name || '—'}</TableCell>
+                                    <TableCell className="text-xs max-w-[280px] truncate" title={a.description}>{a.description || '—'}</TableCell>
+                                    <TableCell className="text-xs">{(a.orders || []).length}</TableCell>
+                                    <TableCell className="text-[11px] uppercase tracking-wide text-gray-700">{a.automationData?.type || '—'}</TableCell>
+                                    <TableCell className="text-xs">{a.automationData?.optimizedLayout?.efficiency ? a.automationData.optimizedLayout.efficiency.toFixed(2) + '%' : '—'}</TableCell>
+                                    <TableCell className="text-xs whitespace-nowrap">{a.createdAt ? new Date(a.createdAt).toLocaleString() : '—'}</TableCell>
+                                    <TableCell className="text-right">
+                                        <Button variant="destructive" size="sm" onClick={async () => {
+                                            if (!window.confirm('Delete this automation?')) return;
+                                            try {
+                                                const res = await axios.delete(`${apiUrl}/api/v1/automate/${a._id}`, { headers: { Authorization: `Bearer ${token}` } });
+                                                if (res.data.success) { toast({ title: 'Deleted', description: 'Automation deleted' }); await loadAutomations(); }
+                                                else throw new Error(res.data.message);
+                                            } catch (err) { toast({ title: 'Error', description: err.message || 'Delete failed', variant: 'destructive' }); }
+                                        }}>
+                                            <Trash2 className='h-4 w-4' />
+                                        </Button>
+                                    </TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>

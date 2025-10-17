@@ -150,6 +150,12 @@ const LoginForm = () => {
             </form>
           </CardContent>
         </Card>
+        <div className="text-center mt-4">
+          <p className="text-sm text-gray-600">
+            Don't have an account?{' '}
+            <Link to="/signup" className="text-gray-900 font-medium hover:underline">Create one</Link>
+          </p>
+        </div>
       </div>
     </div>
   );

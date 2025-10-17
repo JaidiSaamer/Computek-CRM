@@ -1,8 +1,9 @@
 import { createContext, useState, useContext, useEffect } from 'react';
 import axios from 'axios';
 const AuthContext = createContext();
-import {apiUrl} from "@/lib/utils"
+import { apiUrl } from "@/lib/utils"
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -20,7 +21,7 @@ export const AuthProvider = ({ children }) => {
     // Check for stored auth data on mount
     const storedUser = localStorage.getItem('computek_user');
     const storedToken = localStorage.getItem('computek_token');
-    
+
     if (storedUser && storedToken) {
       setUser(JSON.parse(storedUser));
       setToken(storedToken);
@@ -35,7 +36,7 @@ export const AuthProvider = ({ children }) => {
         username: email,
         password: password
       });
-      
+
       if (response.data.success) {
         setUser(response.data.data.user);
         setToken(response.data.data.token);
@@ -45,10 +46,28 @@ export const AuthProvider = ({ children }) => {
         return { success: true };
       }
     } catch (error) {
-      return { 
-        success: false, 
-        message: error.message || 'Login failed' 
+      return {
+        success: false,
+        message: error.message || 'Login failed'
       };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Create a new user account; does not log the user in. Used by SignupForm.
+  const signup = async (payload) => {
+    try {
+      setIsLoading(true);
+      const response = await axios.post(`${apiUrl}/api/v1/auth/signup`, payload);
+      if (response.data?.success) {
+        return { success: true };
+      }
+      return { success: false, message: response.data?.message || 'Signup failed' };
+    } catch (error) {
+      // Prefer server-provided error when available
+      const message = error?.response?.data?.message || error.message || 'Signup failed';
+      return { success: false, message };
     } finally {
       setIsLoading(false);
     }
@@ -66,6 +85,7 @@ export const AuthProvider = ({ children }) => {
     token,
     isLoading,
     login,
+    signup,
     logout,
     isAuthenticated: !!user
   };

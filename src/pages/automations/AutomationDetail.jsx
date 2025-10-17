@@ -54,14 +54,20 @@ const AutomationDetail = () => {
   if (!data) return <div className='p-8 text-sm text-gray-600'>Not found</div>;
 
   const layout = data.automationData?.optimizedLayout;
-  const sheetWidth = layout?.sheetDetails?.sheetWidth || 0;
-  const sheetHeight = layout?.sheetDetails?.sheetHeight || 0;
-  const items = layout?.placedItems || [];
+  const sheets = layout?.sheets && layout.sheets.length > 0 ? layout.sheets : [
+    {
+      index: 1,
+      sheetDetails: layout?.sheetDetails || { sheetWidth: 0, sheetHeight: 0 },
+      placedItems: layout?.placedItems || [],
+      efficiency: layout?.efficiency || 0,
+      unusedArea: layout?.unusedArea || 0,
+    }
+  ];
+  const sheetWidth = sheets[0]?.sheetDetails?.sheetWidth || 0;
+  const sheetHeight = sheets[0]?.sheetDetails?.sheetHeight || 0;
   const fileUrlMap = (data?.automationData?.orderForResponse || []).reduce((acc, cur) => { acc[cur.orderId] = cur.fileUrl; return acc; }, {});
 
   // Compute scale to fit into viewport width (max 1000px area) while preserving aspect ratio
-  const maxRenderWidth = 1000;
-  const scale = sheetWidth ? Math.min(1, maxRenderWidth / sheetWidth) : 1;
 
   const handleDownloadPdf = async () => {
     try {
@@ -129,7 +135,7 @@ const AutomationDetail = () => {
       <div className='flex items-center justify-between'>
         <div>
           <h1 className='text-2xl font-bold text-gray-900'>Automation Layout</h1>
-          <p className='text-gray-600 text-sm mt-1'>Algorithm: <span className='font-medium'>{data.automationData?.type}</span> • Efficiency: {layout?.efficiency?.toFixed(2)}% • Items: {items.length}</p>
+          <p className='text-gray-600 text-sm mt-1'>Algorithm: <span className='font-medium'>{data.automationData?.type}</span> • Sheets: {layout?.sheetCount || sheets.length} • Overall Efficiency: {layout?.efficiency?.toFixed(2)}%</p>
         </div>
         <div className='flex gap-2'>
           <Button asChild variant='outline'><Link to='/automations'><ArrowLeft className='h-4 w-4 mr-1' />Back</Link></Button>
@@ -139,58 +145,64 @@ const AutomationDetail = () => {
         </div>
       </div>
 
-      <Card>
-        <CardHeader className='py-4'>
-          <CardTitle className='text-sm font-semibold'>Sheet Preview ({sheetWidth} x {sheetHeight}) scale {scale.toFixed(2)}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className='overflow-auto border rounded bg-neutral-50 p-4'>
-            <div
-              ref={containerRef}
-              className='relative bg-white shadow-inner mx-auto'
-              style={{ width: sheetWidth * scale, height: sheetHeight * scale, backgroundSize: '20px 20px', backgroundImage: 'linear-gradient(to right,#f5f5f5 1px,transparent 1px),linear-gradient(to bottom,#f5f5f5 1px,transparent 1px)' }}
-            >
-              <div ref={sheetRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
-                {items.map((item, i) => {
-                  const left = (item.x) * scale;
-                  const top = (item.y) * scale;
-                  const w = (item.actualWidth) * scale;
-                  const h = (item.actualHeight) * scale;
-                  const imgUrl = fileUrlMap[item.orderId];
-                  return (
-                    <div
-                      key={i}
-                      className='layout-item absolute rounded-sm border border-gray-700/60 bg-white shadow overflow-hidden group'
-                      style={{ left, top, width: w, height: h }}
-                      title={`Order ${item.orderId} (${item.actualWidth}x${item.actualHeight}) pos(${item.x},${item.y}) rot:${item.rotation}`}
-                    >
-                      {imgUrl ? (
-                        <img
-                          src={imgUrl}
-                          data-original-src={imgUrl}
-                          alt={item.orderId}
-                          className='w-full h-full object-contain transition-transform duration-300'
-                          style={{ transform: item.rotation ? `rotate(${item.rotation}deg)` : 'none' }}
-                          draggable={false}
-                        />
-                      ) : (
-                        <div className='h-full w-full bg-gradient-to-br from-gray-200 to-gray-100 flex flex-col text-[10px] p-1'>
-                          <div className='font-mono truncate'>#{item.orderId?.slice(-6)}</div>
-                          <div className='text-[9px] text-gray-600 mt-auto'>{item.actualWidth}x{item.actualHeight}</div>
-                          {item.rotation ? <div className='text-[9px] text-blue-600'>rot {item.rotation}°</div> : null}
+      {sheets.map((sheet) => {
+        const sWidth = sheet.sheetDetails?.sheetWidth || 0;
+        const sHeight = sheet.sheetDetails?.sheetHeight || 0;
+        const sScale = sWidth ? Math.min(1, 1000 / sWidth) : 1;
+        return (
+          <Card key={sheet.index} className='mb-6'>
+            <CardHeader className='py-4'>
+              <CardTitle className='text-sm font-semibold'>Sheet {sheet.index} ({sWidth} x {sHeight}) • Efficiency {sheet.efficiency?.toFixed(2)}% • scale {sScale.toFixed(2)}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className='overflow-auto border rounded bg-neutral-50 p-4'>
+                <div
+                  className='relative bg-white shadow-inner mx-auto'
+                  style={{ width: sWidth * sScale, height: sHeight * sScale, backgroundSize: '20px 20px', backgroundImage: 'linear-gradient(to right,#f5f5f5 1px,transparent 1px),linear-gradient(to bottom,#f5f5f5 1px,transparent 1px)' }}
+                >
+                  <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                    {sheet.placedItems.map((item, i) => {
+                      const left = (item.x) * sScale;
+                      const top = (item.y) * sScale;
+                      const w = (item.actualWidth) * sScale;
+                      const h = (item.actualHeight) * sScale;
+                      const imgUrl = fileUrlMap[item.orderId];
+                      return (
+                        <div
+                          key={i}
+                          className='layout-item absolute rounded-sm border border-gray-700/60 bg-white shadow overflow-hidden group'
+                          style={{ left, top, width: w, height: h }}
+                          title={`Order ${item.orderId} (${item.actualWidth}x${item.actualHeight}) pos(${item.x},${item.y}) rot:${item.rotation}`}
+                        >
+                          {imgUrl ? (
+                            <img
+                              src={imgUrl}
+                              data-original-src={imgUrl}
+                              alt={item.orderId}
+                              className='w-full h-full object-contain transition-transform duration-300'
+                              style={{ transform: item.rotation ? `rotate(${item.rotation}deg)` : 'none' }}
+                              draggable={false}
+                            />
+                          ) : (
+                            <div className='h-full w-full bg-gradient-to-br from-gray-200 to-gray-100 flex flex-col text-[10px] p-1'>
+                              <div className='font-mono truncate'>#{item.orderId?.slice(-6)}</div>
+                              <div className='text-[9px] text-gray-600 mt-auto'>{item.actualWidth}x{item.actualHeight}</div>
+                              {item.rotation ? <div className='text-[9px] text-blue-600'>rot {item.rotation}°</div> : null}
+                            </div>
+                          )}
+                          <div className='absolute inset-x-0 bottom-0 bg-black/60 text-[9px] text-white px-1 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity'>
+                            #{item.orderId?.slice(-6)} • {item.actualWidth}x{item.actualHeight}{item.rotation ? ` • rot ${item.rotation}` : ''}
+                          </div>
                         </div>
-                      )}
-                      <div className='absolute inset-x-0 bottom-0 bg-black/60 text-[9px] text-white px-1 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity'>
-                        #{item.orderId?.slice(-6)} • {item.actualWidth}x{item.actualHeight}{item.rotation ? ` • rot ${item.rotation}` : ''}
-                      </div>
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        );
+      })}
 
       <Card>
         <CardHeader className='py-3'>
@@ -200,6 +212,27 @@ const AutomationDetail = () => {
           <pre className='text-[11px] bg-black/90 text-green-300 p-4 rounded overflow-auto max-h-96'>{JSON.stringify(layout, null, 2)}</pre>
         </CardContent>
       </Card>
+
+      {(layout?.unplaced || []).length > 0 && (
+        <Card>
+          <CardHeader className='py-3'>
+            <CardTitle className='text-sm text-red-600'>Unplaced items</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className='text-xs text-gray-700'>The following items could not be placed:</div>
+            <ul className='mt-2 space-y-1 text-xs'>
+              {layout.unplaced.map((u, idx) => (
+                <li key={idx} className='flex items-center justify-between border-b py-1'>
+                  <span className='font-mono'>#{u.orderId?.slice?.(-6) || u.orderId}</span>
+                  <span>{u.width}x{u.height}</span>
+                  <span>qty {u.quantity}</span>
+                  <span className='text-red-600'>{u.reason}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

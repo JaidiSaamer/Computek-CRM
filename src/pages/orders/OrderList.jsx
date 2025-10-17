@@ -11,7 +11,7 @@ import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, Dialog
 import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { Plus, RefreshCcw, UserCheck, PlayCircle, Loader2, Layers } from 'lucide-react';
+import { Plus, RefreshCcw, UserCheck, PlayCircle, Loader2, Layers, Pencil, Eye, Download, Trash2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import OrderSummary from '../../components/OrderSummary';
 // Inline automation-related API calls (removed shared automations service)
@@ -20,7 +20,8 @@ const statusVariants = {
   PENDING: 'secondary',
   ACTIVE: 'default',
   COMPLETED: 'outline',
-  CANCELLED: 'destructive'
+  CANCELLED: 'destructive',
+  DELETED: 'secondary'
 };
 
 const OrderList = () => {
@@ -35,7 +36,8 @@ const OrderList = () => {
   const [assigning, setAssigning] = useState(false);
   const [creating, setCreating] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState('');
-  const [filterStatus, setFilterStatus] = useState('ALL');
+  const [filterStatus, setFilterStatus] = useState('PENDING');
+  const STATUS_TABS = ['PENDING', 'ACTIVE', 'AUTOMATED', 'COMPLETED', 'CANCELLED', 'DELETED'];
   const [searchTerm, setSearchTerm] = useState('');
   const [products, setProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState('');
@@ -81,6 +83,7 @@ const OrderList = () => {
   const [sheets, setSheets] = useState([]);
   const [loadingSheets, setLoadingSheets] = useState(false);
   const [creatingAutomation, setCreatingAutomation] = useState(false);
+  const [automationStep, setAutomationStep] = useState(1); // 1 = summary, 2 = configuration
   const [automationForm, setAutomationForm] = useState({
     sheetId: '',
     bleed: '',
@@ -91,8 +94,17 @@ const OrderList = () => {
     margins: { top: 0, bottom: 0, left: 0, right: 0 }
   });
 
+  // Update order dialog state
+  const [updateOpen, setUpdateOpen] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [updateQuantity, setUpdateQuantity] = useState('');
+  const [orderToUpdate, setOrderToUpdate] = useState(null);
+
+  // Order details dialog state
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsOrder, setDetailsOrder] = useState(null);
+
   const filteredOrders = useMemo(() => orders.filter(o => {
-    const matchStatus = filterStatus === 'ALL' || o.currentStatus === filterStatus;
     const term = searchTerm.toLowerCase();
     const matchSearch = !term || (
       o.orderDetails?.productName?.toLowerCase().includes(term) ||
@@ -100,18 +112,24 @@ const OrderList = () => {
       o.raisedBy?.username?.toLowerCase().includes(term) ||
       o.raisedTo?.username?.toLowerCase().includes(term)
     );
-    return matchStatus && matchSearch;
-  }), [orders, filterStatus, searchTerm]);
+    return matchSearch;
+  }), [orders, searchTerm]);
+
+  const getOrdersByStatus = useCallback(async (status) => {
+    const res = await axios.get(`${apiUrl}/api/v1/order/status/${status}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.data.success) throw new Error(res.data.message);
+    return res.data.data || [];
+  }, [token]);
 
   const getOrders = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${apiUrl}/api/v1/order`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.data.success) setOrders(res.data.data); else throw new Error(res.data.message);
+      const list = await getOrdersByStatus(filterStatus);
+      setOrders(list);
     } catch (err) {
       toast({ title: 'Error', description: err.message || 'Failed to load orders', variant: 'destructive' });
     } finally { setLoading(false); }
-  }, [token, toast]);
+  }, [filterStatus, getOrdersByStatus, toast]);
 
   const getStaffUsers = useCallback(async () => {
     try {
@@ -141,6 +159,9 @@ const OrderList = () => {
   }, [token, toast]);
 
   useEffect(() => { getOrders(); if (user?.userType === 'admin') { getStaffUsers(); } getProducts(); }, [getOrders, getStaffUsers, getProducts, user]);
+
+  // Refetch when filter changes
+  useEffect(() => { getOrders(); }, [filterStatus, getOrders]);
 
   const calculateOrderPrice = useCallback(() => {
     if (!orderForm.quantity || !selectedProduct) return '0';
@@ -196,49 +217,17 @@ const OrderList = () => {
   }, [orderForm, selectedProduct, products, costItemDefinitions]);
 
   // Alternative simpler version if your backend doesn't provide detailed pricing
-  const calculateSimpleOrderPrice = useCallback(() => {
-    if (!orderForm.quantity || !orderForm.productName) return '0';
-
-    const quantity = parseInt(orderForm.quantity) || 0;
-
-    // Base pricing per product type
-    const basePrices = {
-      'Business Cards': 2.5,
-      'Brochures': 8,
-      'Banners': 15,
-      'Leaflets': 3,
-      'Handbills': 2,
-      'Pamphlets': 4,
-      'Letter Heads': 5,
-      'Invitation Cards': 6,
-      'Envelopes': 3,
-      'Books': 25,
-      'Posters': 12,
-      'Flyers': 3
-    };
-
-    let basePrice = basePrices[orderForm.productName] || 5;
-    let totalPrice = basePrice * quantity;
-
-    // Add cost for double-sided printing (20% extra)
-    if (orderForm.printingSide === 'DOUBLE') {
-      totalPrice *= 1.2;
-    }
-
-    // Add cost for finishing options (₹0.5 per item per finishing)
-    const finishingOptions = [
-      orderForm.foldingType,
-      orderForm.laminationType,
-      orderForm.uvType,
-      orderForm.foilType,
-      orderForm.dieType,
-      orderForm.textureType
-    ].filter(Boolean);
-
-    totalPrice += finishingOptions.length * 0.5 * quantity;
-
-    return totalPrice.toFixed(2);
-  }, [orderForm]);
+  // const calculateSimpleOrderPrice = useCallback(() => {
+  //   if (!orderForm.quantity || !orderForm.productName) return '0';
+  //   const quantity = parseInt(orderForm.quantity) || 0;
+  //   const basePrices = { 'Business Cards': 2.5, 'Brochures': 8, 'Banners': 15, 'Leaflets': 3, 'Handbills': 2, 'Pamphlets': 4, 'Letter Heads': 5, 'Invitation Cards': 6, 'Envelopes': 3, 'Books': 25, 'Posters': 12, 'Flyers': 3 };
+  //   let basePrice = basePrices[orderForm.productName] || 5;
+  //   let totalPrice = basePrice * quantity;
+  //   if (orderForm.printingSide === 'DOUBLE') { totalPrice *= 1.2; }
+  //   const finishingOptions = [orderForm.foldingType, orderForm.laminationType, orderForm.uvType, orderForm.foilType, orderForm.dieType, orderForm.textureType].filter(Boolean);
+  //   totalPrice += finishingOptions.length * 0.5 * quantity;
+  //   return totalPrice.toFixed(2);
+  // }, [orderForm]);
 
   // When opening automation dialog, fetch sheets if not loaded
   useEffect(() => { if (automationDialogOpen && sheets.length === 0) { loadSheets(); } }, [automationDialogOpen, sheets.length, loadSheets]);
@@ -369,6 +358,7 @@ const OrderList = () => {
       toast({ title: 'Invalid Orders', description: 'All selected orders must be ACTIVE', variant: 'destructive' });
       return;
     }
+    setAutomationStep(1);
     setAutomationDialogOpen(true);
   };
 
@@ -434,6 +424,83 @@ const OrderList = () => {
     }
   };
 
+  // Open update dialog (admin-only route)
+  const openUpdate = (order, e) => {
+    if (e) e.stopPropagation();
+    setOrderToUpdate(order);
+    setUpdateQuantity(order?.orderDetails?.quantity?.toString() || '');
+    setUpdateOpen(true);
+  };
+
+  const submitUpdate = async (e) => {
+    e.preventDefault();
+    if (!orderToUpdate?._id) return;
+    const qty = Number(updateQuantity);
+    if (!qty || qty <= 0) { toast({ title: 'Validation', description: 'Enter a valid quantity', variant: 'destructive' }); return; }
+    try {
+      setUpdating(true);
+      const payload = { currentStatus: 'ACTIVE', orderDetails: { quantity: qty } };
+      const res = await axios.patch(`${apiUrl}/api/v1/order/${orderToUpdate._id}/update`, payload, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.data.success) {
+        toast({ title: 'Order Updated', description: 'Quantity updated and status set to ACTIVE' });
+        setUpdateOpen(false);
+        setOrderToUpdate(null);
+        getOrders();
+      } else throw new Error(res.data.message);
+    } catch (err) {
+      toast({ title: 'Error', description: err.message || 'Failed to update order', variant: 'destructive' });
+    } finally { setUpdating(false); }
+  };
+
+  // Order details dialog helpers
+  const openDetails = (order) => {
+    setDetailsOrder(order);
+    setDetailsOpen(true);
+  };
+  const closeDetails = () => { setDetailsOpen(false); setDetailsOrder(null); };
+
+  // Download order details as .txt
+  const downloadOrderTxt = (order, e) => {
+    if (e) e.stopPropagation();
+    const d = order.orderDetails || {};
+    const metaLines = [
+      `Order ID: ${order._id}`,
+      `Status: ${order.currentStatus}`,
+      `Created: ${new Date(order.createdAt).toLocaleString()}`,
+      `Raised By: ${order.raisedBy?.username || ''}`,
+      `Assigned To: ${order.raisedTo?.username || ''}`,
+      '',
+      'Order Details:',
+      `Product: ${d.productName || ''}`,
+      `Size: ${d.width || ''} x ${d.height || ''}`,
+      `Paper: ${d.paperConfig || ''}`,
+      `Printing Side: ${d.printingSide || ''}`,
+      `Quantity: ${d.quantity || ''}`,
+      `Quality (DPI): ${d.quality || ''}`,
+      `Folding: ${d.foldingType || ''}`,
+      `Lamination: ${d.laminationType || ''}`,
+      `UV: ${d.uvType || ''}`,
+      `Foil: ${d.foilType || ''}`,
+      `Die: ${d.dieType || ''}`,
+      `Texture: ${d.textureType || ''}`,
+      `Notes: ${d.additionalNote || ''}`,
+      '',
+      'Attached Files:',
+      d.fileUrl ? `${d.fileUrl}` : 'None',
+    ];
+    const content = metaLines.join('\n');
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const nameSafe = (d.productName || 'order').replace(/[^a-z0-9-]+/gi, '_');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${nameSafe}_${order._id.slice(-6)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
@@ -452,14 +519,23 @@ const OrderList = () => {
           <div className="flex-1 relative">
             <Input placeholder="Search orders (id, product, user)" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
-          <div className="flex gap-2 items-center">
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[160px]"><SelectValue placeholder="Status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Statuses</SelectItem>
-                {['PENDING', 'ACTIVE', 'COMPLETED', 'CANCELLED'].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          <div className="flex gap-2 items-center flex-wrap">
+            {STATUS_TABS.map(s => {
+              const isActive = filterStatus === s;
+              return (
+                <Button
+                  key={s}
+                  type="button"
+                  variant={isActive ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setFilterStatus(s)}
+                  className={`rounded-full h-8 ${isActive ? 'bg-zinc-900 text-white hover:bg-zinc-800' : ''}`}
+                  aria-pressed={isActive}
+                >
+                  {s}
+                </Button>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -475,9 +551,10 @@ const OrderList = () => {
             </div>
           </div>
           {selectedForAutomation.length > 0 && (
-            <div className="text-xs text-gray-600 flex items-center gap-2">
-              <span>{selectedForAutomation.length} selected</span>
+            <div className="text-xs text-gray-600 flex items-center gap-3">
+              <span className="font-medium">{selectedForAutomation.length} selected</span>
               <button type="button" className="underline" onClick={() => setSelectedForAutomation([])}>Clear</button>
+              <button type="button" className="underline" onClick={toggleSelectAll}>{allSelectedOnPage ? 'Unselect visible' : 'Select all visible'}</button>
             </div>
           )}
         </CardHeader>
@@ -504,8 +581,12 @@ const OrderList = () => {
               ) : filteredOrders.length === 0 ? (
                 <TableRow><TableCell colSpan={9} className="py-10 text-center text-sm text-gray-500">No orders found</TableCell></TableRow>
               ) : filteredOrders.map(o => (
-                <TableRow key={o._id} className="hover:bg-gray-50">
-                  <TableCell className="w-8">
+                <TableRow
+                  key={o._id}
+                  className={`hover:bg-gray-50 cursor-pointer ${selectedForAutomation.includes(o._id) ? 'bg-blue-50/50 ring-1 ring-blue-100' : ''}`}
+                  onClick={() => openDetails(o)}
+                >
+                  <TableCell className="w-8" onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       disabled={o.currentStatus !== 'ACTIVE'}
                       checked={selectedForAutomation.includes(o._id)}
@@ -520,20 +601,44 @@ const OrderList = () => {
                   <TableCell className="text-xs">{o.raisedBy?.username || '—'}</TableCell>
                   <TableCell className="text-xs">{o.raisedTo?.username || <span className="text-gray-400">Unassigned</span>}</TableCell>
                   <TableCell className="text-xs">{new Date(o.createdAt).toLocaleDateString()}</TableCell>
-                  <TableCell className="text-right space-x-2">
+                  <TableCell className="text-right space-x-2" onClick={(e) => e.stopPropagation()}>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); openDetails(o); }} title="View details">
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={(e) => downloadOrderTxt(o, e)} title="Download as .txt">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                    {user?.userType === 'admin' && (
+                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={(e) => openUpdate(o, e)} title="Update quantity">
+                        <Pencil className="h-3.5 w-3.5 mr-1" />Update
+                      </Button>
+                    )}
                     {user?.userType === 'admin' && !o.raisedTo && (
-                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openAssign(o)}>
+                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); openAssign(o); }}>
                         <UserCheck className="h-3.5 w-3.5 mr-1" />Assign
                       </Button>
                     )}
                     {user?.userType === 'admin' && o.currentStatus === 'PENDING' && (
-                      <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => approveOrder(o)}>
+                      <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); approveOrder(o); }}>
                         Approve
                       </Button>
                     )}
                     {user?.userType === 'admin' && ['PENDING', 'ACTIVE'].includes(o.currentStatus) && (
-                      <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => cancelOrder(o)}>
+                      <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); cancelOrder(o); }}>
                         Cancel
+                      </Button>
+                    )}
+                    {user?.userType === 'admin' && o.currentStatus === 'CANCELLED' && (
+                      <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!window.confirm('Delete this cancelled order? This will mark it as DELETED.')) return;
+                        try {
+                          const res = await axios.delete(`${apiUrl}/api/v1/order/${o._id}`, { headers: { Authorization: `Bearer ${token}` } });
+                          if (res.data.success) { toast({ title: 'Order Deleted', description: 'Order marked as DELETED' }); getOrders(); }
+                          else throw new Error(res.data.message);
+                        } catch (err) { toast({ title: 'Error', description: err.message || 'Delete failed', variant: 'destructive' }); }
+                      }} title="Delete (mark as DELETED)">
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     )}
                   </TableCell>
@@ -543,6 +648,27 @@ const OrderList = () => {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Sticky selection bar for better UX */}
+      {selectedForAutomation.length > 0 && (
+        <div className="sticky bottom-2 z-30 mt-4">
+          <div className="mx-auto max-w-7xl">
+            <div className="flex items-center justify-between rounded-md border bg-white shadow-lg px-3 py-2 text-sm">
+              <div className="flex items-center gap-2">
+                <Layers className="h-4 w-4 text-blue-600" />
+                <span><span className="font-semibold">{selectedForAutomation.length}</span> selected</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setSelectedForAutomation([])}>Clear</Button>
+                <Button variant="outline" size="sm" onClick={toggleSelectAll}>{allSelectedOnPage ? 'Unselect visible' : 'Select visible'}</Button>
+                <Button size="sm" onClick={openAutomationDialog} disabled={selectedForAutomation.length < 2}>
+                  <PlayCircle className="h-4 w-4 mr-1" /> Automate
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Assign Dialog */}
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
@@ -783,84 +909,199 @@ const OrderList = () => {
 
 
 
-      {/* Automation Dialog */}
+      {/* Automation Dialog with Summary Step */}
       <Dialog open={automationDialogOpen} onOpenChange={setAutomationDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>Start Automation</DialogTitle></DialogHeader>
-          <form onSubmit={submitAutomation} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Sheet *</Label>
-                <Select value={automationForm.sheetId} onValueChange={val => handleAutomationField('sheetId', val)}>
-                  <SelectTrigger><SelectValue placeholder={loadingSheets ? 'Loading...' : 'Select Sheet'} /></SelectTrigger>
-                  <SelectContent>
-                    {sheets.map(s => (
-                      <SelectItem key={s._id} value={s._id}>{s.name || `${s.width}x${s.height}`}</SelectItem>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{automationStep === 1 ? 'Automation Summary' : 'Start Automation'}</DialogTitle>
+          </DialogHeader>
+          {automationStep === 1 ? (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">Review selected orders before configuring automation.</p>
+              <div className="max-h-72 overflow-y-auto border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Order</TableHead>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Size</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {orders.filter(o => selectedForAutomation.includes(o._id)).map(o => (
+                      <TableRow key={o._id}>
+                        <TableCell className="font-mono text-[11px]">{o._id.slice(-8)}</TableCell>
+                        <TableCell className="text-sm">{o.orderDetails?.productName}</TableCell>
+                        <TableCell className="text-xs">{o.orderDetails?.width}x{o.orderDetails?.height} • {o.orderDetails?.paperConfig}</TableCell>
+                        <TableCell className="text-right text-sm">{o.orderDetails?.quantity}</TableCell>
+                      </TableRow>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </TableBody>
+                </Table>
               </div>
-              <div className="space-y-2">
-                <Label>Bleed (mm)</Label>
-                <Input type="number" value={automationForm.bleed} onChange={e => handleAutomationField('bleed', e.target.value)} />
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Total Orders: <span className="font-semibold">{selectedForAutomation.length}</span></span>
+                <span className="text-gray-600">Total Quantity: <span className="font-semibold">{orders.filter(o => selectedForAutomation.includes(o._id)).reduce((sum, o) => sum + (o.orderDetails?.quantity || 0), 0)}</span></span>
               </div>
-              <div className="space-y-2">
-                <Label>Algorithm Type *</Label>
-                <Select value={automationForm.type} onValueChange={val => handleAutomationField('type', val)}>
-                  <SelectTrigger><SelectValue placeholder="Select Type" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="BOTTOM_LEFT_FILL">Bottom Left Fill</SelectItem>
-                    <SelectItem value="SHELF">Shelf (Row-based)</SelectItem>
-                    <SelectItem value="MAX_RECTS">Max Rects (High Efficiency)</SelectItem>
-                    <SelectItem value="GANG">Gang (Interleaved Jobs)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">Allow Rotations
-                  <Checkbox checked={automationForm.rotationsAllowed} onCheckedChange={val => handleAutomationField('rotationsAllowed', !!val)} />
-                </Label>
-              </div>
-              <div className="space-y-2">
-                <Label>Name</Label>
-                <Input value={automationForm.name} onChange={e => handleAutomationField('name', e.target.value)} placeholder="Optional name" />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label>Description</Label>
-                <textarea className="w-full border rounded-md p-2 text-sm" value={automationForm.description} onChange={e => handleAutomationField('description', e.target.value)} placeholder="Optional description" />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <p className="text-xs font-semibold tracking-wide text-gray-500">Margins (mm)</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {['top', 'bottom', 'left', 'right'].map(m => (
-                    <div key={m} className="space-y-1">
-                      <Label className="capitalize text-xs">{m}</Label>
-                      <Input type="number" value={automationForm.margins[m]} onChange={e => handleAutomationField(`margins.${m}`, e.target.value)} />
-                    </div>
-                  ))}
+              <DialogFooter className="flex gap-2 justify-end">
+                <Button type="button" variant="outline" onClick={() => setAutomationDialogOpen(false)}>Cancel</Button>
+                <Button type="button" onClick={() => setAutomationStep(2)}>Next</Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <form onSubmit={submitAutomation} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Sheet *</Label>
+                  <Select value={automationForm.sheetId} onValueChange={val => handleAutomationField('sheetId', val)}>
+                    <SelectTrigger><SelectValue placeholder={loadingSheets ? 'Loading...' : 'Select Sheet'} /></SelectTrigger>
+                    <SelectContent>
+                      {sheets.map(s => (
+                        <SelectItem key={s._id} value={s._id}>{s.name || `${s.width}x${s.height}`}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="mt-4 border rounded-md p-3 bg-gray-50 space-y-1">
-                  <p className="text-xs font-semibold text-gray-700">Algorithm Guide</p>
-                  <ul className="text-[11px] leading-relaxed text-gray-600 list-disc pl-4">
-                    <li><span className="font-medium">Bottom Left Fill:</span> Fast general-purpose; good starting point for mixed jobs.</li>
-                    <li><span className="font-medium">Shelf:</span> Use when items share similar heights; stable horizontal rows.</li>
-                    <li><span className="font-medium">Max Rects:</span> Best packing efficiency for varied sizes; slower.</li>
-                    <li><span className="font-medium">Gang:</span> Balances multiple orders; choose when fairness across jobs matters.</li>
-                  </ul>
+                <div className="space-y-2">
+                  <Label>Bleed (mm)</Label>
+                  <Input type="number" value={automationForm.bleed} onChange={e => handleAutomationField('bleed', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Algorithm Type *</Label>
+                  <Select value={automationForm.type} onValueChange={val => handleAutomationField('type', val)}>
+                    <SelectTrigger><SelectValue placeholder="Select Type" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="BOTTOM_LEFT_FILL">Bottom Left Fill</SelectItem>
+                      <SelectItem value="SHELF">Shelf (Row-based)</SelectItem>
+                      <SelectItem value="MAX_RECTS">Max Rects (High Efficiency)</SelectItem>
+                      <SelectItem value="GANG">Gang (Interleaved Jobs)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">Allow Rotations
+                    <Checkbox checked={automationForm.rotationsAllowed} onCheckedChange={val => handleAutomationField('rotationsAllowed', !!val)} />
+                  </Label>
+                </div>
+                <div className="space-y-2">
+                  <Label>Name</Label>
+                  <Input value={automationForm.name} onChange={e => handleAutomationField('name', e.target.value)} placeholder="Optional name" />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Description</Label>
+                  <textarea className="w-full border rounded-md p-2 text-sm" value={automationForm.description} onChange={e => handleAutomationField('description', e.target.value)} placeholder="Optional description" />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <p className="text-xs font-semibold tracking-wide text-gray-500">Margins (mm)</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {['top', 'bottom', 'left', 'right'].map(m => (
+                      <div key={m} className="space-y-1">
+                        <Label className="capitalize text-xs">{m}</Label>
+                        <Input type="number" value={automationForm.margins[m]} onChange={e => handleAutomationField(`margins.${m}`, e.target.value)} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <p className="text-xs text-gray-600">Orders Selected: <span className="font-medium">{selectedForAutomation.length}</span></p>
+                  <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto border rounded p-2 bg-gray-50">
+                    {selectedForAutomation.map(id => <span key={id} className="text-[10px] font-mono bg-gray-200 px-1.5 py-0.5 rounded">{id.slice(-6)}</span>)}
+                  </div>
                 </div>
               </div>
-              <div className="space-y-2 md:col-span-2">
-                <p className="text-xs text-gray-600">Orders Selected: <span className="font-medium">{selectedForAutomation.length}</span></p>
-                <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto border rounded p-2 bg-gray-50">
-                  {selectedForAutomation.map(id => <span key={id} className="text-[10px] font-mono bg-gray-200 px-1.5 py-0.5 rounded">{id.slice(-6)}</span>)}
+              <DialogFooter className="flex gap-2 justify-between">
+                <div>
+                  <Button type="button" variant="ghost" onClick={() => setAutomationStep(1)}>Back</Button>
                 </div>
-              </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" onClick={() => setAutomationDialogOpen(false)}>Cancel</Button>
+                  <Button type="submit" disabled={creatingAutomation}>{creatingAutomation ? <Loader2 className="h-4 w-4 animate-spin" /> : <><PlayCircle className="h-4 w-4 mr-1" /> Start</>}</Button>
+                </div>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Update Order Dialog */}
+      <Dialog open={updateOpen} onOpenChange={setUpdateOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Update Order</DialogTitle></DialogHeader>
+          <form onSubmit={submitUpdate} className="space-y-4">
+            <div className="text-sm">
+              <p className="text-gray-600">Order <span className="font-mono">{orderToUpdate?._id?.slice(-8)}</span></p>
+              <p className="text-gray-600">Product: <span className="font-medium">{orderToUpdate?.orderDetails?.productName}</span></p>
+              <p className="text-gray-600">Current Qty: <span className="font-medium">{orderToUpdate?.orderDetails?.quantity}</span></p>
+            </div>
+            <div className="space-y-2">
+              <Label>New Quantity</Label>
+              <Input type="number" value={updateQuantity} onChange={(e) => setUpdateQuantity(e.target.value)} min={1} />
+              <p className="text-[11px] text-gray-500">Updating will set status to <span className="font-semibold">ACTIVE</span> so you can re-run automation.</p>
             </div>
             <DialogFooter className="flex gap-2 justify-end">
-              <Button type="button" variant="outline" onClick={() => setAutomationDialogOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={creatingAutomation}>{creatingAutomation ? <Loader2 className="h-4 w-4 animate-spin" /> : <><PlayCircle className="h-4 w-4 mr-1" /> Start</>}</Button>
+              <Button type="button" variant="outline" onClick={() => setUpdateOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={updating}>{updating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Update'}</Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Order Details Dialog */}
+      <Dialog open={detailsOpen} onOpenChange={(open) => { if (!open) closeDetails(); else setDetailsOpen(true); }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Order Details</DialogTitle>
+          </DialogHeader>
+          {detailsOrder && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="md:col-span-2 space-y-4">
+                <Card>
+                  <CardHeader><CardTitle className="text-base">Overview</CardTitle></CardHeader>
+                  <CardContent className="text-sm space-y-1">
+                    <p><span className="text-gray-600">Order:</span> <span className="font-mono">{detailsOrder._id}</span></p>
+                    <p><span className="text-gray-600">Status:</span> <Badge className="ml-1">{detailsOrder.currentStatus}</Badge></p>
+                    <p><span className="text-gray-600">Created:</span> {new Date(detailsOrder.createdAt).toLocaleString()}</p>
+                    <p><span className="text-gray-600">Raised By:</span> {detailsOrder.raisedBy?.username || '—'}</p>
+                    <p><span className="text-gray-600">Assigned To:</span> {detailsOrder.raisedTo?.username || '—'}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader><CardTitle className="text-base">Order Details</CardTitle></CardHeader>
+                  <CardContent className="text-sm grid grid-cols-2 gap-y-2">
+                    <p><span className="text-gray-600">Product:</span> {detailsOrder.orderDetails?.productName}</p>
+                    <p><span className="text-gray-600">Quantity:</span> {detailsOrder.orderDetails?.quantity}</p>
+                    <p><span className="text-gray-600">Size:</span> {detailsOrder.orderDetails?.width} x {detailsOrder.orderDetails?.height} mm</p>
+                    <p><span className="text-gray-600">Paper:</span> {detailsOrder.orderDetails?.paperConfig}</p>
+                    <p><span className="text-gray-600">Printing:</span> {detailsOrder.orderDetails?.printingSide}</p>
+                    <p><span className="text-gray-600">Quality (DPI):</span> {detailsOrder.orderDetails?.quality}</p>
+                    <p className="col-span-2"><span className="text-gray-600">Finishing:</span> {[detailsOrder.orderDetails?.foldingType, detailsOrder.orderDetails?.laminationType, detailsOrder.orderDetails?.uvType, detailsOrder.orderDetails?.foilType, detailsOrder.orderDetails?.dieType, detailsOrder.orderDetails?.textureType].filter(Boolean).join(', ') || '—'}</p>
+                    <p className="col-span-2"><span className="text-gray-600">Notes:</span> {detailsOrder.orderDetails?.additionalNote || '—'}</p>
+                    <div className="col-span-2 flex items-center gap-2 mt-2">
+                      <Button type="button" variant="outline" size="sm" onClick={(e) => downloadOrderTxt(detailsOrder, e)}>
+                        <Download className="h-4 w-4 mr-1" /> Download .txt
+                      </Button>
+                      {detailsOrder.orderDetails?.fileUrl && (
+                        <a href={detailsOrder.orderDetails.fileUrl} target="_blank" rel="noreferrer" className="text-xs underline text-blue-600">Open file</a>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="md:col-span-1">
+                <Card>
+                  <CardHeader><CardTitle className="text-base">Preview</CardTitle></CardHeader>
+                  <CardContent>
+                    {detailsOrder.orderDetails?.fileUrl ? (
+                      <img src={detailsOrder.orderDetails.fileUrl} alt="Order file preview" className="rounded border max-h-64 object-contain w-full bg-gray-50" />
+                    ) : (
+                      <p className="text-xs text-gray-500">No file attached</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
