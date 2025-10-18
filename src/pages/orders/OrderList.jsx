@@ -550,15 +550,15 @@ const OrderList = () => {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="app-container">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
-          <p className="text-gray-600 text-sm mt-1">Manage and track all printing orders</p>
+          <h1 className="page-title">Orders</h1>
+          <p className="page-subtitle">Manage and track all printing orders</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={getOrders} disabled={loading}><RefreshCcw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />Refresh</Button>
-          <Button className="bg-zinc-800 text-white" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-2" />New Order</Button>
+          <Button onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-2" />New Order</Button>
         </div>
       </div>
 
@@ -577,7 +577,7 @@ const OrderList = () => {
                   variant={isActive ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setFilterStatus(s)}
-                  className={`rounded-full h-8 ${isActive ? 'bg-zinc-900 text-white hover:bg-zinc-800' : ''}`}
+                  className="rounded-full h-8"
                   aria-pressed={isActive}
                 >
                   {s}

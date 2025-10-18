@@ -140,7 +140,7 @@ const SignupForm = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-3xl space-y-8">
         {/* Logo and Header */}
         <div className="text-center">
@@ -149,14 +149,14 @@ const SignupForm = () => {
             alt="Computek Printing"
             className="mx-auto h-16 w-auto object-contain mb-4"
           />
-          <h2 className="text-3xl font-bold text-gray-900">Computek Printing</h2>
-          <p className="mt-2 text-gray-600">Create your account</p>
+          <h2 className="text-3xl font-bold text-foreground">Computek Printing</h2>
+          <p className="mt-2 text-muted-foreground">Create your account</p>
         </div>
 
-        <Card>
+        <Card className="card-elevated">
           <CardHeader className="pb-4">
             <CardTitle>Create your account</CardTitle>
-            <CardDescription>Complete the form below to get started.</CardDescription>
+            <CardDescription className="text-muted-foreground">Complete the form below to get started.</CardDescription>
           </CardHeader>
           <Separator />
           <CardContent className="pt-6">
@@ -164,7 +164,7 @@ const SignupForm = () => {
               {/* Account Section */}
               <div>
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-zinc-800 uppercase tracking-wide">Account Information</h3>
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Account Information</h3>
                 </div>
                 <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -205,7 +205,7 @@ const SignupForm = () => {
 
               {/* Contact Section */}
               <div>
-                <h3 className="text-sm font-semibold text-zinc-800 uppercase tracking-wide">Contact Details</h3>
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Contact Details</h3>
                 <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="primaryContactNo">Primary Contact No *</Label>
@@ -227,7 +227,7 @@ const SignupForm = () => {
 
               {/* Organization Section */}
               <div>
-                <h3 className="text-sm font-semibold text-zinc-800 uppercase tracking-wide">Organization (Optional)</h3>
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Organization (Optional)</h3>
                 <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="companyName">Company Name</Label>
@@ -248,7 +248,7 @@ const SignupForm = () => {
 
               {/* Address Section */}
               <div>
-                <h3 className="text-sm font-semibold text-zinc-800 uppercase tracking-wide">Address</h3>
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Address</h3>
                 <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="state">State *</Label>
@@ -274,7 +274,7 @@ const SignupForm = () => {
               </div>
 
               <div className="pt-2">
-                <Button type="submit" className="w-full bg-zinc-900 text-zinc-100 hover:bg-zinc-800 md:w-auto px-6" disabled={isLoading}>
+                <Button type="submit" className="w-full md:w-auto px-6" disabled={isLoading}>
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -287,9 +287,9 @@ const SignupForm = () => {
               </div>
 
               <div className="text-center">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   Already have an account?{' '}
-                  <Link to="/login" className="text-gray-900 font-medium hover:underline">Sign in here</Link>
+                  <Link to="/login" className="text-foreground font-medium hover:underline">Sign in here</Link>
                 </p>
               </div>
             </form>

@@ -55,10 +55,17 @@ const Automations = () => {
 
     return (
         <div className="p-6 max-w-7xl mx-auto">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Automations</h1>
-                    <p className="text-gray-600 text-sm mt-1">Algorithmic and Manual automations</p>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                        <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium">
+                            Algo: <span className="ml-1 font-semibold">{automations.length}</span>
+                        </span>
+                        <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium">
+                            Manual: <span className="ml-1 font-semibold">{manualAutomations.length}</span>
+                        </span>
+                    </div>
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" onClick={() => { if (activeTab === 'ALGO') loadAutomations(); else loadManualAutomations(); }} disabled={loading}>
@@ -70,8 +77,22 @@ const Automations = () => {
             <Card className="mb-5">
                 <CardContent className="p-4 flex flex-col md:flex-row gap-4">
                     <div className="flex items-center gap-2">
-                        <Button size="sm" variant={activeTab === 'ALGO' ? 'default' : 'outline'} className={activeTab === 'ALGO' ? 'bg-zinc-900 text-white' : ''} onClick={() => setActiveTab('ALGO')}>Algorithmic</Button>
-                        <Button size="sm" variant={activeTab === 'MANUAL' ? 'default' : 'outline'} className={activeTab === 'MANUAL' ? 'bg-zinc-900 text-white' : ''} onClick={() => setActiveTab('MANUAL')}>Manual</Button>
+                        <Button
+                            size="sm"
+                            variant={activeTab === 'ALGO' ? 'default' : 'outline'}
+                            className={activeTab === 'ALGO' ? 'bg-primary text-white hover:bg-primary/90 shadow' : ''}
+                            onClick={() => setActiveTab('ALGO')}
+                        >
+                            Algorithmic
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant={activeTab === 'MANUAL' ? 'default' : 'outline'}
+                            className={activeTab === 'MANUAL' ? 'bg-primary text-white hover:bg-primary/90 shadow' : ''}
+                            onClick={() => setActiveTab('MANUAL')}
+                        >
+                            Manual
+                        </Button>
                     </div>
                     <div className="flex-1">
                         <Input placeholder="Search automations (id, name, desc)" value={search} onChange={(e) => setSearch(e.target.value)} />

@@ -9,11 +9,11 @@ import { Textarea } from '../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { useToast } from '../../hooks/use-toast';
 import { Loader2, Upload, X, FileText } from 'lucide-react';
-import { 
-  mockPrintingServices, 
-  mockPaperTypes, 
-  mockSizes, 
-  mockCreateOrder 
+import {
+  mockPrintingServices,
+  mockPaperTypes,
+  mockSizes,
+  mockCreateOrder
 } from '../../mocks/mock';
 
 const CreateOrder = () => {
@@ -30,7 +30,7 @@ const CreateOrder = () => {
   });
   const [files, setFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -85,7 +85,7 @@ const CreateOrder = () => {
       'Posters': 12,
       'Flyers': 3
     };
-    
+
     const price = (basePrice[formData.productType] || 5) * quantity;
     return price.toLocaleString();
   };
@@ -93,7 +93,7 @@ const CreateOrder = () => {
   const validateForm = () => {
     const required = ['jobName', 'productType', 'size', 'paperType', 'quantity', 'deliveryDate', 'address'];
     const missing = required.filter(field => !formData[field]);
-    
+
     if (missing.length > 0) {
       toast({
         title: "Missing Fields",
@@ -115,7 +115,7 @@ const CreateOrder = () => {
     const deliveryDate = new Date(formData.deliveryDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     if (deliveryDate <= today) {
       toast({
         title: "Invalid Date",
@@ -130,11 +130,11 @@ const CreateOrder = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
 
     setIsLoading(true);
-    
+
     try {
       const orderData = {
         ...formData,
@@ -145,7 +145,7 @@ const CreateOrder = () => {
       };
 
       const result = await mockCreateOrder(orderData);
-      
+
       if (result.success) {
         toast({
           title: "Order Created",
@@ -153,7 +153,7 @@ const CreateOrder = () => {
         });
         navigate('/orders');
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to create order. Please try again.",
@@ -171,10 +171,10 @@ const CreateOrder = () => {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="app-container">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Create New Order</h1>
-        <p className="text-gray-600 mt-1">Fill in the details to place your printing order</p>
+        <h1 className="page-title">Create New Order</h1>
+        <p className="page-subtitle">Fill in the details to place your printing order</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -434,8 +434,8 @@ const CreateOrder = () => {
                   </>
                 )}
 
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full"
                   disabled={isLoading}
                 >

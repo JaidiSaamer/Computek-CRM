@@ -135,7 +135,17 @@ const AutomationDetail = () => {
       <div className='flex items-center justify-between'>
         <div>
           <h1 className='text-2xl font-bold text-gray-900'>Automation Layout</h1>
-          <p className='text-gray-600 text-sm mt-1'>Algorithm: <span className='font-medium'>{data.automationData?.type}</span> • Sheets: {layout?.sheetCount || sheets.length} • Overall Efficiency: {layout?.efficiency?.toFixed(2)}%</p>
+          <div className='flex flex-wrap items-center gap-2 mt-2'>
+            <span className='inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium'>
+              Algorithm: <span className='ml-1 font-semibold'>{data.automationData?.type || '—'}</span>
+            </span>
+            <span className='inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium'>
+              Sheets: <span className='ml-1 font-semibold'>{layout?.sheetCount || sheets.length}</span>
+            </span>
+            <span className='inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium'>
+              Efficiency: <span className='ml-1 font-semibold'>{layout?.efficiency?.toFixed?.(2)}%</span>
+            </span>
+          </div>
         </div>
         <div className='flex gap-2'>
           <Button asChild variant='outline'><Link to='/automations'><ArrowLeft className='h-4 w-4 mr-1' />Back</Link></Button>
@@ -150,17 +160,31 @@ const AutomationDetail = () => {
         const sHeight = sheet.sheetDetails?.sheetHeight || 0;
         const sScale = sWidth ? Math.min(1, 1000 / sWidth) : 1;
         return (
-          <Card key={sheet.index} className='mb-6'>
+          <Card key={sheet.index} className='mb-6 bg-white shadow-none border-none'>
             <CardHeader className='py-4'>
-              <CardTitle className='text-sm font-semibold'>Sheet {sheet.index} ({sWidth} x {sHeight}) • Efficiency {sheet.efficiency?.toFixed(2)}% • scale {sScale.toFixed(2)}</CardTitle>
+              <CardTitle className='text-sm font-semibold'>
+                <span className='mr-2'>Sheet {sheet.index}</span>
+                <span className='inline-flex items-center gap-1 text-xs text-muted-foreground'>
+                  <span className='inline-flex items-center rounded bg-muted px-1.5 py-0.5'>
+                    {sWidth} × {sHeight}
+                  </span>
+                  <span className='inline-flex items-center rounded bg-primary/10 text-primary px-1.5 py-0.5'>
+                    Eff. {sheet.efficiency?.toFixed(2)}%
+                  </span>
+                  <span className='inline-flex items-center rounded bg-muted px-1.5 py-0.5'>
+                    ×{sScale.toFixed(2)}
+                  </span>
+                </span>
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className='overflow-auto border rounded bg-neutral-50 p-4'>
+              <div className='overflow-auto rounded-xl p-6 bg-gradient-to-b'>
                 <div
-                  className='relative bg-white shadow-inner mx-auto'
-                  style={{ width: sWidth * sScale, height: sHeight * sScale, backgroundSize: '20px 20px', backgroundImage: 'linear-gradient(to right,#f5f5f5 1px,transparent 1px),linear-gradient(to bottom,#f5f5f5 1px,transparent 1px)' }}
+                  ref={sheetRef}
+                  className='relative bg-neutral-50 mx-auto rounded-md ring-1 ring-primary/40 shadow-2xl'
+                  style={{ width: sWidth * sScale, height: sHeight * sScale, backgroundSize: '20px 20px', backgroundImage: 'linear-gradient(to right,#e6eaf1 1px,transparent 1px),linear-gradient(to bottom,#e6eaf1 1px,transparent 1px)' }}
                 >
-                  <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                  <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
                     {sheet.placedItems.map((item, i) => {
                       const left = (item.x) * sScale;
                       const top = (item.y) * sScale;
@@ -170,7 +194,7 @@ const AutomationDetail = () => {
                       return (
                         <div
                           key={i}
-                          className='layout-item absolute rounded-sm border border-gray-700/60 bg-white shadow overflow-hidden group'
+                          className='layout-item absolute rounded-sm bg-white overflow-hidden group'
                           style={{ left, top, width: w, height: h }}
                           title={`Order ${item.orderId} (${item.actualWidth}x${item.actualHeight}) pos(${item.x},${item.y}) rot:${item.rotation}`}
                         >

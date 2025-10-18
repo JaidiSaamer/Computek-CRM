@@ -39,7 +39,19 @@ const ManualAutomationDetail = () => {
             <div className='flex items-center justify-between'>
                 <div>
                     <h1 className='text-2xl font-bold text-gray-900'>Manual Automation</h1>
-                    <p className='text-gray-600 text-sm mt-1'>Created: {data.createdAt ? new Date(data.createdAt).toLocaleString() : '—'}</p>
+                    <div className='flex flex-wrap items-center gap-2 mt-2'>
+                        <span className='inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium'>
+                            Created <span className='ml-1 font-semibold'>{data.createdAt ? new Date(data.createdAt).toLocaleString() : '—'}</span>
+                        </span>
+                        <span className='inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium'>
+                            Orders <span className='ml-1 font-semibold'>{(data.orders || []).length}</span>
+                        </span>
+                        {data.automationFile && (
+                            <span className='inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium'>
+                                File <span className='ml-1 font-semibold'>available</span>
+                            </span>
+                        )}
+                    </div>
                 </div>
                 <div className='flex gap-2'>
                     <Button asChild variant='outline'><Link to='/automations'><ArrowLeft className='h-4 w-4 mr-1' />Back</Link></Button>

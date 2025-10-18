@@ -70,7 +70,7 @@ const LoginForm = () => {
   };
 
   return (
-    <div className="h-screen w-full flex items-center justify-center bg-zinc-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="h-screen w-full flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Logo and Header */}
         <div className="flex flex-col justify-center items-center">
@@ -79,14 +79,14 @@ const LoginForm = () => {
             alt="Computek Printing"
             className="mx-auto h-16 rounded-xl w-auto object-contain mb-4"
           />
-          <h2 className="text-3xl font-bold text-gray-900">Computek Printing</h2>
-          <p className="mt-2 text-gray-600 ">Sign in to your account</p>
+          <h2 className="text-3xl font-bold text-foreground">Computek Printing</h2>
+          <p className="mt-2 text-muted-foreground ">Sign in to your account</p>
         </div>
 
-        <Card className="flex flex-col gap-8">
+        <Card className="flex flex-col gap-8 card-elevated">
           <CardHeader className="flex flex-col items-center">
             <CardTitle>Login Now</CardTitle>
-            <CardDescription>
+            <CardDescription className="text-muted-foreground">
               Enter your credentials to access your account
             </CardDescription>
           </CardHeader>
@@ -133,11 +133,7 @@ const LoginForm = () => {
                 </div>
               </div>
 
-              <Button
-                type="submit"
-                className="w-full bg-zinc-800 text-white"
-                disabled={isLoading}
-              >
+              <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -151,9 +147,9 @@ const LoginForm = () => {
           </CardContent>
         </Card>
         <div className="text-center mt-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             Don't have an account?{' '}
-            <Link to="/signup" className="text-gray-900 font-medium hover:underline">Create one</Link>
+            <Link to="/signup" className="text-foreground font-medium hover:underline">Create one</Link>
           </p>
         </div>
       </div>
