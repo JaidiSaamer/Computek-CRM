@@ -11,7 +11,7 @@ import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, Dialog
 import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { Plus, RefreshCcw, UserCheck, PlayCircle, Loader2, Layers, Pencil, Eye, Download, Trash2 } from 'lucide-react';
+import { Plus, RefreshCcw, UserCheck, PlayCircle, Loader2, Layers, Pencil, Eye, Download, Trash2, Upload } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import OrderSummary from '../../components/OrderSummary';
 // Inline automation-related API calls (removed shared automations service)
@@ -21,7 +21,8 @@ const statusVariants = {
   ACTIVE: 'default',
   COMPLETED: 'outline',
   CANCELLED: 'destructive',
-  DELETED: 'secondary'
+  DELETED: 'secondary',
+  MANUALLY_AUTOMATED: 'default'
 };
 
 const OrderList = () => {
@@ -37,7 +38,7 @@ const OrderList = () => {
   const [creating, setCreating] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState('');
   const [filterStatus, setFilterStatus] = useState('PENDING');
-  const STATUS_TABS = ['PENDING', 'ACTIVE', 'AUTOMATED', 'COMPLETED', 'CANCELLED', 'DELETED'];
+  const STATUS_TABS = ['PENDING', 'ACTIVE', 'AUTOMATED', 'MANUALLY_AUTOMATED', 'COMPLETED', 'CANCELLED', 'DELETED'];
   const [searchTerm, setSearchTerm] = useState('');
   const [products, setProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState('');
@@ -93,6 +94,11 @@ const OrderList = () => {
     type: 'BOTTOM_LEFT_FILL',
     margins: { top: 0, bottom: 0, left: 0, right: 0 }
   });
+
+  // Manual automation state
+  const [manualDialogOpen, setManualDialogOpen] = useState(false);
+  const [manualForm, setManualForm] = useState({ name: '', description: '', fileUrl: '' });
+  const [manualUploading, setManualUploading] = useState(false);
 
   // Update order dialog state
   const [updateOpen, setUpdateOpen] = useState(false);
@@ -216,19 +222,6 @@ const OrderList = () => {
     return totalPrice.toFixed(2);
   }, [orderForm, selectedProduct, products, costItemDefinitions]);
 
-  // Alternative simpler version if your backend doesn't provide detailed pricing
-  // const calculateSimpleOrderPrice = useCallback(() => {
-  //   if (!orderForm.quantity || !orderForm.productName) return '0';
-  //   const quantity = parseInt(orderForm.quantity) || 0;
-  //   const basePrices = { 'Business Cards': 2.5, 'Brochures': 8, 'Banners': 15, 'Leaflets': 3, 'Handbills': 2, 'Pamphlets': 4, 'Letter Heads': 5, 'Invitation Cards': 6, 'Envelopes': 3, 'Books': 25, 'Posters': 12, 'Flyers': 3 };
-  //   let basePrice = basePrices[orderForm.productName] || 5;
-  //   let totalPrice = basePrice * quantity;
-  //   if (orderForm.printingSide === 'DOUBLE') { totalPrice *= 1.2; }
-  //   const finishingOptions = [orderForm.foldingType, orderForm.laminationType, orderForm.uvType, orderForm.foilType, orderForm.dieType, orderForm.textureType].filter(Boolean);
-  //   totalPrice += finishingOptions.length * 0.5 * quantity;
-  //   return totalPrice.toFixed(2);
-  // }, [orderForm]);
-
   // When opening automation dialog, fetch sheets if not loaded
   useEffect(() => { if (automationDialogOpen && sheets.length === 0) { loadSheets(); } }, [automationDialogOpen, sheets.length, loadSheets]);
 
@@ -348,8 +341,8 @@ const OrderList = () => {
   };
 
   const openAutomationDialog = () => {
-    if (selectedForAutomation.length < 2) {
-      toast({ title: 'Select Orders', description: 'Select at least two orders to automate', variant: 'destructive' });
+    if (selectedForAutomation.length < 1) {
+      toast({ title: 'Select Orders', description: 'Select at least one order to automate', variant: 'destructive' });
       return;
     }
     // Validate all selected orders are ACTIVE
@@ -360,6 +353,61 @@ const OrderList = () => {
     }
     setAutomationStep(1);
     setAutomationDialogOpen(true);
+  };
+
+  // Manual automation helpers
+  const openManualDialog = () => {
+    if (selectedForAutomation.length < 1) {
+      toast({ title: 'Select Orders', description: 'Select at least one order to manually automate', variant: 'destructive' });
+      return;
+    }
+    const invalid = orders.filter(o => selectedForAutomation.includes(o._id) && o.currentStatus !== 'ACTIVE');
+    if (invalid.length) {
+      toast({ title: 'Invalid Orders', description: 'All selected orders must be ACTIVE', variant: 'destructive' });
+      return;
+    }
+    setManualDialogOpen(true);
+  };
+
+  const uploadManualFile = async (file) => {
+    if (!file) return;
+    // Limit 1MB client-side
+    const MAX_BYTES = 1 * 1024 * 1024;
+    if (file.size > MAX_BYTES) {
+      toast({ title: 'File too large', description: 'Max 1MB file size allowed', variant: 'destructive' });
+      return;
+    }
+    try {
+      setManualUploading(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await axios.post(`${apiUrl}/api/v1/automate/manual/upload`, formData, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } });
+      if (res.data.success) {
+        setManualForm(prev => ({ ...prev, fileUrl: res.data.data.filePath }));
+        toast({ title: 'Uploaded', description: 'Manual automation file uploaded' });
+      } else throw new Error(res.data.message);
+    } catch (err) {
+      toast({ title: 'Error', description: err.message || 'Upload failed', variant: 'destructive' });
+    } finally { setManualUploading(false); }
+  };
+
+  const submitManualAutomation = async (e) => {
+    e.preventDefault();
+    if (!manualForm.name) { toast({ title: 'Validation', description: 'Name is required', variant: 'destructive' }); return; }
+    if (!manualForm.fileUrl) { toast({ title: 'Validation', description: 'Upload the manual automation file', variant: 'destructive' }); return; }
+    try {
+      const payload = { name: manualForm.name, description: manualForm.description || '', orders: selectedForAutomation, automationFile: manualForm.fileUrl };
+      const res = await axios.post(`${apiUrl}/api/v1/automate/manual`, payload, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.data.success) {
+        toast({ title: 'Manual Automation Saved', description: 'Orders marked as MANUALLY_AUTOMATED' });
+        setManualDialogOpen(false);
+        setManualForm({ name: '', description: '', fileUrl: '' });
+        setSelectedForAutomation([]);
+        getOrders();
+      } else throw new Error(res.data.message);
+    } catch (err) {
+      toast({ title: 'Error', description: err.message || 'Failed to save manual automation', variant: 'destructive' });
+    }
   };
 
   const handleAutomationField = (name, value) => {
@@ -545,8 +593,11 @@ const OrderList = () => {
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-semibold">All Orders ({filteredOrders.length})</CardTitle>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" disabled={selectedForAutomation.length < 2} onClick={openAutomationDialog}>
+              <Button variant="outline" size="sm" disabled={selectedForAutomation.length < 1} onClick={openAutomationDialog}>
                 <PlayCircle className="h-4 w-4 mr-1" /> Automate ({selectedForAutomation.length})
+              </Button>
+              <Button variant="outline" size="sm" disabled={selectedForAutomation.length < 1} onClick={openManualDialog}>
+                <Upload className="h-4 w-4 mr-1" /> Manual Automate
               </Button>
             </div>
           </div>
@@ -598,7 +649,7 @@ const OrderList = () => {
                   <TableCell className="text-sm">{o.orderDetails?.productName}</TableCell>
                   <TableCell className="text-sm">{o.orderDetails?.quantity}</TableCell>
                   <TableCell><Badge variant={statusVariants[o.currentStatus] || 'outline'} className="text-[10px] px-2 py-0.5 bg-green-600 text-white">{o.currentStatus}</Badge></TableCell>
-                  <TableCell className="text-xs">{o.raisedBy?.username || '—'}</TableCell>
+                  <TableCell className="text-xs">{o.raisedBy?.username || '\u2014'}</TableCell>
                   <TableCell className="text-xs">{o.raisedTo?.username || <span className="text-gray-400">Unassigned</span>}</TableCell>
                   <TableCell className="text-xs">{new Date(o.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right space-x-2" onClick={(e) => e.stopPropagation()}>
@@ -661,8 +712,11 @@ const OrderList = () => {
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm" onClick={() => setSelectedForAutomation([])}>Clear</Button>
                 <Button variant="outline" size="sm" onClick={toggleSelectAll}>{allSelectedOnPage ? 'Unselect visible' : 'Select visible'}</Button>
-                <Button size="sm" onClick={openAutomationDialog} disabled={selectedForAutomation.length < 2}>
+                <Button size="sm" onClick={openAutomationDialog} disabled={selectedForAutomation.length < 1}>
                   <PlayCircle className="h-4 w-4 mr-1" /> Automate
+                </Button>
+                <Button size="sm" variant="outline" onClick={openManualDialog} disabled={selectedForAutomation.length < 1}>
+                  <Upload className="h-4 w-4 mr-1" /> Manual Automate
                 </Button>
               </div>
             </div>
@@ -907,8 +961,6 @@ const OrderList = () => {
         </DialogContent>
       </Dialog>
 
-
-
       {/* Automation Dialog with Summary Step */}
       <Dialog open={automationDialogOpen} onOpenChange={setAutomationDialogOpen}>
         <DialogContent className="max-w-3xl">
@@ -1021,6 +1073,34 @@ const OrderList = () => {
               </DialogFooter>
             </form>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual Automation Dialog */}
+      <Dialog open={manualDialogOpen} onOpenChange={setManualDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Manual Automate Selected Orders</DialogTitle></DialogHeader>
+          <form onSubmit={submitManualAutomation} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Name *</Label>
+              <Input value={manualForm.name} onChange={(e) => setManualForm(p => ({ ...p, name: e.target.value }))} placeholder="Enter a name" />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <textarea className="w-full border rounded-md p-2 text-sm" rows={3} value={manualForm.description} onChange={(e) => setManualForm(p => ({ ...p, description: e.target.value }))} placeholder="Optional description" />
+            </div>
+            <div className="space-y-2">
+              <Label>Upload File (max 1MB)</Label>
+              <Input type="file" onChange={(e) => uploadManualFile(e.target.files?.[0])} />
+              {manualUploading && <div className="text-xs text-gray-500 flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" /> Uploading...</div>}
+              {manualForm.fileUrl && <p className="text-xs text-green-600 truncate">✓ Uploaded: {manualForm.fileUrl.split('/').pop()}</p>}
+            </div>
+            <div className="text-xs text-gray-600">Orders Selected: <span className="font-medium">{selectedForAutomation.length}</span></div>
+            <DialogFooter className="flex gap-2 justify-end">
+              <Button type="button" variant="outline" onClick={() => setManualDialogOpen(false)}>Cancel</Button>
+              <Button type="submit">Save Manual Automation</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

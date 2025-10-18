@@ -17,6 +17,7 @@ import Support from "./pages/Support";
 import Downloads from "./pages/Downloads";
 import Automations from "./pages/automations/Automations";
 import AutomationDetail from "./pages/automations/AutomationDetail";
+import ManualAutomationDetail from "./pages/automations/ManualAutomationDetail";
 
 // Admin Pages
 import UserManagement from "./pages/admin/UserManagement";
@@ -148,6 +149,11 @@ const AppRoutes = () => {
       <Route path="/automations/:id" element={
         <ProtectedRoute>
           <AutomationDetail />
+        </ProtectedRoute>
+      } />
+      <Route path="/automations/manual/:id" element={
+        <ProtectedRoute>
+          <ManualAutomationDetail />
         </ProtectedRoute>
       } />
 
