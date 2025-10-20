@@ -15,8 +15,9 @@ import PaymentOnline from "./pages/payments/PaymentOnline";
 import Profile from "./pages/Profile";
 import Support from "./pages/Support";
 import Downloads from "./pages/Downloads";
-// import Automations from "./pages/automations/Automations";
-// import AutomationDetail from "./pages/automations/AutomationDetail";
+import Automations from "./pages/automations/Automations";
+import AutomationDetail from "./pages/automations/AutomationDetail";
+import ManualAutomationDetail from "./pages/automations/ManualAutomationDetail";
 
 // Admin Pages
 import UserManagement from "./pages/admin/UserManagement";
@@ -31,8 +32,8 @@ const ProtectedRoute = ({ children }) => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -42,13 +43,10 @@ const ProtectedRoute = ({ children }) => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-background">
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
-        {/* Add padding-left on mobile to account for hamburger button */}
-        <div className="pt-16 md:pt-0 px-4 md:px-6 lg:px-8 py-6">
-          {children}
-        </div>
+        {children}
       </main>
     </div>
   );
@@ -60,8 +58,8 @@ const PublicRoute = ({ children }) => {
 
   if (isLoading) {
     return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -143,7 +141,7 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
 
-      {/* <Route path="/automations" element={
+      <Route path="/automations" element={
         <ProtectedRoute>
           <Automations />
         </ProtectedRoute>
@@ -152,7 +150,12 @@ const AppRoutes = () => {
         <ProtectedRoute>
           <AutomationDetail />
         </ProtectedRoute>
-      } /> */}
+      } />
+      <Route path="/automations/manual/:id" element={
+        <ProtectedRoute>
+          <ManualAutomationDetail />
+        </ProtectedRoute>
+      } />
 
       {/* Admin Routes */}
       <Route path="/admin/users" element={

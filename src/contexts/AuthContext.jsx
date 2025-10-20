@@ -1,8 +1,9 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { mockLogin, mockSignup } from '../mocks/mock.js';
-
+import { createContext, useState, useContext, useEffect } from 'react';
+import axios from 'axios';
 const AuthContext = createContext();
+import { apiUrl } from "@/lib/utils"
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -20,7 +21,7 @@ export const AuthProvider = ({ children }) => {
     // Check for stored auth data on mount
     const storedUser = localStorage.getItem('computek_user');
     const storedToken = localStorage.getItem('computek_token');
-    
+
     if (storedUser && storedToken) {
       setUser(JSON.parse(storedUser));
       setToken(storedToken);
@@ -31,48 +32,42 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       setIsLoading(true);
-      const response = await mockLogin(email, password);
-      
-      if (response.success) {
-        setUser(response.user);
-        setToken(response.token);
-        
+      const response = await axios.post(`${apiUrl}/api/v1/auth/login`, {
+        username: email,
+        password: password
+      });
+
+      if (response.data.success) {
+        setUser(response.data.data.user);
+        setToken(response.data.data.token);
         // Store in localStorage
-        localStorage.setItem('computek_user', JSON.stringify(response.user));
-        localStorage.setItem('computek_token', response.token);
-        
+        localStorage.setItem('computek_user', JSON.stringify(response.data.data.user));
+        localStorage.setItem('computek_token', response.data.data.token);
         return { success: true };
       }
     } catch (error) {
-      return { 
-        success: false, 
-        message: error.message || 'Login failed' 
+      return {
+        success: false,
+        message: error.message || 'Login failed'
       };
     } finally {
       setIsLoading(false);
     }
   };
 
-  const signup = async (userData) => {
+  // Create a new user account; does not log the user in. Used by SignupForm.
+  const signup = async (payload) => {
     try {
       setIsLoading(true);
-      const response = await mockSignup(userData);
-      
-      if (response.success) {
-        setUser(response.user);
-        setToken(response.token);
-        
-        // Store in localStorage
-        localStorage.setItem('computek_user', JSON.stringify(response.user));
-        localStorage.setItem('computek_token', response.token);
-        
+      const response = await axios.post(`${apiUrl}/api/v1/auth/signup`, payload);
+      if (response.data?.success) {
         return { success: true };
       }
+      return { success: false, message: response.data?.message || 'Signup failed' };
     } catch (error) {
-      return { 
-        success: false, 
-        message: error.message || 'Signup failed' 
-      };
+      // Prefer server-provided error when available
+      const message = error?.response?.data?.message || error.message || 'Signup failed';
+      return { success: false, message };
     } finally {
       setIsLoading(false);
     }

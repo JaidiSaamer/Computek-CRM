@@ -218,26 +218,6 @@ export const mockTickets = [
   }
 ];
 
-// Authentication mock functions
-export const mockLogin = (email, password) => {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      const user = Object.values(mockUsers).find(u => u.email === email);
-      if (user && password === 'password123') {
-        resolve({
-          success: true,
-          user,
-          token: 'mock-jwt-token-' + user.role
-        });
-      } else {
-        reject({
-          success: false,
-          message: 'Invalid credentials'
-        });
-      }
-    }, 1000);
-  });
-};
 
 export const mockSignup = (userData) => {
   return new Promise((resolve) => {
