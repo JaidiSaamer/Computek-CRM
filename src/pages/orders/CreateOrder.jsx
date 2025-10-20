@@ -171,293 +171,286 @@ const CreateOrder = () => {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-2xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Create New Order</h1>
-        <p className="text-gray-600 mt-1">Fill in the details to place your printing order</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Create New Order</h1>
+        <p className="text-sm text-gray-600 mt-1">Fill in the details to place your printing order</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Form */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Order Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="jobName">Job Name *</Label>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Order Details Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Order Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="jobName">Job Name *</Label>
+              <Input
+                id="jobName"
+                name="jobName"
+                value={formData.jobName}
+                onChange={handleChange}
+                placeholder="e.g., Business Cards - Tech Corp"
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label>Product Type *</Label>
+              <Select value={formData.productType} onValueChange={(value) => handleSelectChange('productType', value)}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select product type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {mockPrintingServices.map(service => (
+                    <SelectItem key={service} value={service}>{service}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Size *</Label>
+              <Select value={formData.size} onValueChange={(value) => handleSelectChange('size', value)}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select size" />
+                </SelectTrigger>
+                <SelectContent>
+                  {mockSizes.map(size => (
+                    <SelectItem key={size} value={size}>{size}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Paper Type *</Label>
+              <Select value={formData.paperType} onValueChange={(value) => handleSelectChange('paperType', value)}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select paper type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {mockPaperTypes.map(paper => (
+                    <SelectItem key={paper} value={paper}>{paper}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="quantity">Quantity *</Label>
+              <Input
+                id="quantity"
+                name="quantity"
+                type="number"
+                min="1"
+                value={formData.quantity}
+                onChange={handleChange}
+                placeholder="Enter quantity"
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="deliveryDate">Required Delivery Date *</Label>
+              <Input
+                id="deliveryDate"
+                name="deliveryDate"
+                type="date"
+                min={getTomorrowDate()}
+                value={formData.deliveryDate}
+                onChange={handleChange}
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="description">Additional Description</Label>
+              <Textarea
+                id="description"
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                placeholder="Any special instructions or requirements..."
+                className="mt-1"
+                rows={3}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* File Upload Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Design Files *</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                <div className="mt-4">
+                  <Label htmlFor="file-upload" className="cursor-pointer">
+                    <span className="mt-2 block text-sm font-medium text-gray-900">
+                      Upload design files
+                    </span>
+                    <span className="text-xs sm:text-sm text-gray-600">
+                      PDF, PNG, JPG up to 10MB each
+                    </span>
+                  </Label>
                   <Input
-                    id="jobName"
-                    name="jobName"
-                    value={formData.jobName}
-                    onChange={handleChange}
-                    placeholder="e.g., Business Cards - Tech Corp"
-                    className="mt-1"
+                    id="file-upload"
+                    type="file"
+                    multiple
+                    accept=".pdf,.png,.jpg,.jpeg"
+                    onChange={handleFileUpload}
+                    className="hidden"
                   />
                 </div>
+              </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Product Type *</Label>
-                    <Select value={formData.productType} onValueChange={(value) => handleSelectChange('productType', value)}>
-                      <SelectTrigger className="mt-1">
-                        <SelectValue placeholder="Select product type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {mockPrintingServices.map(service => (
-                          <SelectItem key={service} value={service}>{service}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label>Size *</Label>
-                    <Select value={formData.size} onValueChange={(value) => handleSelectChange('size', value)}>
-                      <SelectTrigger className="mt-1">
-                        <SelectValue placeholder="Select size" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {mockSizes.map(size => (
-                          <SelectItem key={size} value={size}>{size}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Paper Type *</Label>
-                    <Select value={formData.paperType} onValueChange={(value) => handleSelectChange('paperType', value)}>
-                      <SelectTrigger className="mt-1">
-                        <SelectValue placeholder="Select paper type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {mockPaperTypes.map(paper => (
-                          <SelectItem key={paper} value={paper}>{paper}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="quantity">Quantity *</Label>
-                    <Input
-                      id="quantity"
-                      name="quantity"
-                      type="number"
-                      min="1"
-                      value={formData.quantity}
-                      onChange={handleChange}
-                      placeholder="Enter quantity"
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="deliveryDate">Required Delivery Date *</Label>
-                  <Input
-                    id="deliveryDate"
-                    name="deliveryDate"
-                    type="date"
-                    min={getTomorrowDate()}
-                    value={formData.deliveryDate}
-                    onChange={handleChange}
-                    className="mt-1"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="description">Additional Description</Label>
-                  <Textarea
-                    id="description"
-                    name="description"
-                    value={formData.description}
-                    onChange={handleChange}
-                    placeholder="Any special instructions or requirements..."
-                    className="mt-1"
-                    rows={3}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* File Upload */}
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle>Design Files *</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                    <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                    <div className="mt-4">
-                      <Label htmlFor="file-upload" className="cursor-pointer">
-                        <span className="mt-2 block text-sm font-medium text-gray-900">
-                          Upload design files
-                        </span>
-                        <span className="text-sm text-gray-600">
-                          PDF, PNG, JPG up to 10MB each
-                        </span>
-                      </Label>
-                      <Input
-                        id="file-upload"
-                        type="file"
-                        multiple
-                        accept=".pdf,.png,.jpg,.jpeg"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                      />
-                    </div>
-                  </div>
-
-                  {files.length > 0 && (
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium">Uploaded Files:</h4>
-                      {files.map(file => (
-                        <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div className="flex items-center space-x-3">
-                            <FileText className="h-5 w-5 text-gray-500" />
-                            <div>
-                              <p className="text-sm font-medium">{file.name}</p>
-                              <p className="text-xs text-gray-500">
-                                {(file.size / 1024 / 1024).toFixed(2)} MB
-                              </p>
-                            </div>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeFile(file.id)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
+              {files.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium">Uploaded Files:</h4>
+                  {files.map(file => (
+                    <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center space-x-3 min-w-0 flex-1">
+                        <FileText className="h-5 w-5 text-gray-500 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{file.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {(file.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
                         </div>
-                      ))}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeFile(file.id)}
+                        className="text-red-600 hover:text-red-700 flex-shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                     </div>
-                  )}
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
-            {/* Delivery Details */}
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle>Delivery Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="address">Delivery Address *</Label>
-                  <Textarea
-                    id="address"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    placeholder="Enter complete delivery address with pincode"
-                    className="mt-1"
-                    rows={3}
-                  />
+        {/* Delivery Information Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Delivery Information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="address">Delivery Address *</Label>
+              <Textarea
+                id="address"
+                name="address"
+                value={formData.address}
+                onChange={handleChange}
+                placeholder="Enter complete delivery address with pincode"
+                className="mt-1"
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="courierService">Preferred Courier Service</Label>
+              <Input
+                id="courierService"
+                name="courierService"
+                value={formData.courierService}
+                onChange={handleChange}
+                placeholder="e.g., BlueDart, DTDC, FedEx"
+                className="mt-1"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Order Summary Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Order Summary</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {formData.productType ? (
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Product:</span>
+                  <span className="font-medium">{formData.productType}</span>
                 </div>
-
-                <div>
-                  <Label htmlFor="courierService">Preferred Courier Service</Label>
-                  <Input
-                    id="courierService"
-                    name="courierService"
-                    value={formData.courierService}
-                    onChange={handleChange}
-                    placeholder="e.g., BlueDart, DTDC, FedEx"
-                    className="mt-1"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Order Summary Sidebar */}
-          <div>
-            <Card className="sticky top-6">
-              <CardHeader>
-                <CardTitle>Order Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {formData.productType && (
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Product:</span>
-                      <span className="font-medium">{formData.productType}</span>
-                    </div>
-                    {formData.size && (
-                      <div className="flex justify-between">
-                        <span>Size:</span>
-                        <span>{formData.size}</span>
-                      </div>
-                    )}
-                    {formData.paperType && (
-                      <div className="flex justify-between">
-                        <span>Paper:</span>
-                        <span>{formData.paperType}</span>
-                      </div>
-                    )}
-                    {formData.quantity && (
-                      <div className="flex justify-between">
-                        <span>Quantity:</span>
-                        <span>{formData.quantity}</span>
-                      </div>
-                    )}
-                    {files.length > 0 && (
-                      <div className="flex justify-between">
-                        <span>Files:</span>
-                        <span>{files.length} uploaded</span>
-                      </div>
-                    )}
+                {formData.size && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Size:</span>
+                    <span className="font-medium">{formData.size}</span>
                   </div>
                 )}
-
-                {formData.productType && formData.quantity && (
-                  <>
-                    <div className="border-t pt-4">
-                      <div className="flex justify-between font-medium">
-                        <span>Estimated Total:</span>
-                        <span>₹{calculateEstimatedPrice()}</span>
-                      </div>
-                      <p className="text-xs text-gray-600 mt-1">
-                        *Final price may vary based on specifications
-                      </p>
-                    </div>
-                  </>
+                {formData.paperType && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Paper:</span>
+                    <span className="font-medium">{formData.paperType}</span>
+                  </div>
                 )}
+                {formData.quantity && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Quantity:</span>
+                    <span className="font-medium">{formData.quantity}</span>
+                  </div>
+                )}
+                {files.length > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Files:</span>
+                    <span className="font-medium">{files.length} uploaded</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-4">
+                Fill in the order details to see summary
+              </p>
+            )}
 
-                <Button 
-                  type="submit" 
-                  className="w-full"
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating Order...
-                    </>
-                  ) : (
-                    'Create Order'
-                  )}
-                </Button>
-
-                <div className="text-xs text-gray-600 space-y-1">
-                  <p>• Orders are processed within 24 hours</p>
-                  <p>• You will receive email confirmation</p>
-                  <p>• Payment required before production</p>
+            {formData.productType && formData.quantity && (
+              <div className="border-t pt-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-semibold text-base">Estimated Total:</span>
+                  <span className="font-bold text-lg text-gray-900">₹{calculateEstimatedPrice()}</span>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+                <p className="text-xs text-gray-600">
+                  *Final price may vary based on specifications
+                </p>
+              </div>
+            )}
+
+            <Button 
+              type="submit" 
+              className="w-full"
+              disabled={isLoading}
+              size="lg"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating Order...
+                </>
+              ) : (
+                'Create Order'
+              )}
+            </Button>
+
+            <div className="text-xs text-gray-600 space-y-1 bg-gray-50 p-3 rounded-lg">
+              <p>• Orders are processed within 24 hours</p>
+              <p>• You will receive email confirmation</p>
+              <p>• Payment required before production</p>
+            </div>
+          </CardContent>
+        </Card>
       </form>
     </div>
   );

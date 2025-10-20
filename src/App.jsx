@@ -1,5 +1,3 @@
-import React from "react";
-import "./App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 // import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -17,42 +15,17 @@ import PaymentOnline from "./pages/payments/PaymentOnline";
 import Profile from "./pages/Profile";
 import Support from "./pages/Support";
 import Downloads from "./pages/Downloads";
+// import Automations from "./pages/automations/Automations";
+// import AutomationDetail from "./pages/automations/AutomationDetail";
 
 // Admin Pages
 import UserManagement from "./pages/admin/UserManagement";
 import OrderOptions from "./pages/admin/OrderOptions";
 import Inventory from "./pages/admin/Inventory";
-import Analytics from "./pages/admin/Analytics";
-
 // Layout
 import Sidebar from "./components/layout/Sidebar";
 
 // Protected Route Component
-// const ProtectedRoute = ({ children }) => {
-//   const { isAuthenticated, isLoading } = useAuth();
-
-//   if (isLoading) {
-//     return (
-//       <div className="min-h-screen flex items-center justify-center">
-//         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-//       </div>
-//     );
-//   }
-
-//   if (!isAuthenticated) {
-//     return <Navigate to="/login" replace />;
-//   }
-
-//   return (
-//     <div className="flex h-screen bg-gray-50">
-//       <Sidebar />
-//       <main className="flex-1 overflow-y-auto">
-//         {children}
-//       </main>
-//     </div>
-//   );
-// };
-
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -69,10 +42,13 @@ const ProtectedRoute = ({ children }) => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto pt-16 lg:pt-0">
-        {children}
+      <main className="flex-1 overflow-y-auto">
+        {/* Add padding-left on mobile to account for hamburger button */}
+        <div className="pt-16 md:pt-0 px-4 md:px-6 lg:px-8 py-6">
+          {children}
+        </div>
       </main>
     </div>
   );
@@ -84,7 +60,7 @@ const PublicRoute = ({ children }) => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
       </div>
     );
@@ -118,54 +94,65 @@ const AppRoutes = () => {
           <Dashboard />
         </ProtectedRoute>
       } />
-      
-      <Route path="/orders/create" element={
+
+      {/* <Route path="/orders/create" element={
         <ProtectedRoute>
           <CreateOrder />
         </ProtectedRoute>
-      } />
-      
+      } /> */}
+
       <Route path="/orders" element={
         <ProtectedRoute>
           <OrderList />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/payments/make" element={
         <ProtectedRoute>
           <PaymentMake />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/payments/online" element={
         <ProtectedRoute>
           <PaymentOnline />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/payments" element={
         <ProtectedRoute>
           <OrderList />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/profile" element={
         <ProtectedRoute>
           <Profile />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/support" element={
         <ProtectedRoute>
           <Support />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/downloads" element={
         <ProtectedRoute>
           <Downloads />
         </ProtectedRoute>
       } />
+
+      {/* <Route path="/automations" element={
+        <ProtectedRoute>
+          <Automations />
+        </ProtectedRoute>
+      } />
+      <Route path="/automations/:id" element={
+        <ProtectedRoute>
+          <AutomationDetail />
+        </ProtectedRoute>
+      } /> */}
 
       {/* Admin Routes */}
       <Route path="/admin/users" element={
@@ -173,22 +160,10 @@ const AppRoutes = () => {
           <UserManagement />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/admin/options" element={
         <ProtectedRoute>
           <OrderOptions />
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/admin/inventory" element={
-        <ProtectedRoute>
-          <Inventory />
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/admin/analytics" element={
-        <ProtectedRoute>
-          <Analytics />
         </ProtectedRoute>
       } />
 
@@ -200,7 +175,7 @@ const AppRoutes = () => {
 
 function App() {
   return (
-    <div className="App">
+    <div>
       <AuthProvider>
         <BrowserRouter>
           <AppRoutes />
