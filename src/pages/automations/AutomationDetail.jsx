@@ -194,19 +194,43 @@ const AutomationDetail = () => {
                       return (
                         <div
                           key={i}
-                          className='layout-item absolute rounded-sm bg-white overflow-hidden group'
+                          className='layout-item absolute bg-white overflow-hidden group'
                           style={{ left, top, width: w, height: h }}
                           title={`Order ${item.orderId} (${item.actualWidth}x${item.actualHeight}) pos(${item.x},${item.y}) rot:${item.rotation}`}
                         >
                           {imgUrl ? (
-                            <img
-                              src={imgUrl}
-                              data-original-src={imgUrl}
-                              alt={item.orderId}
-                              className='w-full h-full object-contain transition-transform duration-300'
-                              style={{ transform: item.rotation ? `rotate(${item.rotation}deg)` : 'none' }}
-                              draggable={false}
-                            />
+                            (() => {
+                              const r = ((item.rotation || 0) % 360 + 360) % 360;
+                              // For 90/270, use a wrapper sized (h, w) so after rotation it visually becomes (w, h)
+                              if (r === 90 || r === 270) {
+                                const preW = h;
+                                const preH = w;
+                                const transform = r === 90 ? 'rotate(90deg) translateY(-100%)' : 'rotate(270deg) translateX(-100%)';
+                                return (
+                                  <div style={{ width: preW, height: preH, transform, transformOrigin: 'top left' }}>
+                                    <img
+                                      src={imgUrl}
+                                      data-original-src={imgUrl}
+                                      alt={item.orderId}
+                                      style={{ width: '100%', height: '100%', display: 'block', objectFit: 'fill' }}
+                                      draggable={false}
+                                    />
+                                  </div>
+                                );
+                              }
+                              const transform = r === 180 ? 'rotate(180deg) translate(-100%, -100%)' : 'none';
+                              return (
+                                <div style={{ width: '100%', height: '100%', transform, transformOrigin: 'top left' }}>
+                                  <img
+                                    src={imgUrl}
+                                    data-original-src={imgUrl}
+                                    alt={item.orderId}
+                                    style={{ width: '100%', height: '100%', display: 'block', objectFit: 'fill' }}
+                                    draggable={false}
+                                  />
+                                </div>
+                              );
+                            })()
                           ) : (
                             <div className='h-full w-full bg-gradient-to-br from-gray-200 to-gray-100 flex flex-col text-[10px] p-1'>
                               <div className='font-mono truncate'>#{item.orderId?.slice(-6)}</div>
