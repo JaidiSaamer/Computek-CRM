@@ -44,7 +44,9 @@ const OrderList = () => {
   const [products, setProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState('');
   const [productMeta, setProductMeta] = useState({ sizes: [], papers: [], costItems: [] });
+  
 
+ 
   const productFieldConfig = {
     'VISITING_CARD': ['LAMINATION', 'UV', 'FOIL', 'DIE', 'TEXTURE'],
     'BROCHURE': ['LAMINATION', 'UV', 'FOIL'],
@@ -69,6 +71,7 @@ const OrderList = () => {
     { enum: 'DIE', label: 'Die', field: costItemTypeMap.DIE },
     { enum: 'TEXTURE', label: 'Texture', field: costItemTypeMap.TEXTURE },
   ], [costItemTypeMap]);
+  
   const [orderForm, setOrderForm] = useState({
     productName: '',
     width: '',
@@ -86,6 +89,39 @@ const OrderList = () => {
     quality: '',
     fileUrl: ''
   });
+
+  const resetOrderForm = () => {
+  setOrderForm({ 
+    productName: '', 
+    width: '', 
+    height: '', 
+    quantity: '', 
+    paperConfig: '', 
+    printingSide: '', 
+    foldingType: '', 
+    laminationType: '', 
+    uvType: '', 
+    foilType: '', 
+    dieType: '', 
+    textureType: '', 
+    additionalNote: '', 
+    quality: '', 
+    fileUrl: '' 
+  });
+
+  setSelectedProduct('');
+  setProductMeta({ sizes: [], papers: [], costItems: [] }); // Reset
+  // setFiles([]);
+
+};
+
+
+
+const openCreateDialog = () => {
+  resetOrderForm(); // Reset form first
+  setCreateOpen(true); // Then open dialog
+};
+
   const [uploadingFile, setUploadingFile] = useState(false);
   const [filePreview, setFilePreview] = useState(null);
   // Automation state
@@ -158,8 +194,11 @@ const OrderList = () => {
   const getOrders = useCallback(async () => {
     try {
       setLoading(true);
+      console.log('Getting orders with status:', filterStatus); // Log 5
       const list = await getOrdersByStatus(filterStatus);
+      console.log('Orders fetched:', list); // Log 6
       setOrders(list);
+      console.log('Orders state updated'); // Log 7
     } catch (err) {
       toast({ title: 'Error', description: err.message || 'Failed to load orders', variant: 'destructive' });
     } finally { setLoading(false); }
@@ -348,12 +387,25 @@ const OrderList = () => {
           quality: Number(orderForm.quality)
         }
       };
+
+      console.log('Creating order...'); // Log 1
+
       const res = await axios.post(`${apiUrl}/api/v1/order`, payload, { headers: { Authorization: `Bearer ${token}` } });
+
+      console.log('Response:', res.data); // Log 2  
+
       if (res.data.success) {
         toast({ title: 'Order Created', description: 'Order created successfully' });
-        setCreateOpen(false);
-        setOrderForm({ productName: '', width: '', height: '', quantity: '', paperConfig: '', printingSide: '', foldingType: '', laminationType: '', uvType: '', foilType: '', dieType: '', textureType: '', additionalNote: '', quality: '', fileUrl: '' });
-        getOrders();
+         resetOrderForm(); // Reset form
+      setCreateOpen(false); // Close dialog
+      await getOrders(); // Refresh orders list
+        // setOrderForm({ productName: '', width: '', height: '', quantity: '', paperConfig: '', printingSide: '', foldingType: '', laminationType: '', uvType: '', foilType: '', dieType: '', textureType: '', additionalNote: '', quality: '', fileUrl: '' });
+
+         console.log('Before getOrders'); // Log 3
+         await getOrders(); // Make it await
+      console.log('After getOrders'); // Log 4
+
+        // getOrders();
       } else throw new Error(res.data.message);
     } catch (err) { toast({ title: 'Error', description: err.message || 'Creation failed', variant: 'destructive' }); }
     finally { setCreating(false); }
@@ -707,7 +759,9 @@ const OrderList = () => {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={getOrders} disabled={loading}><RefreshCcw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />Refresh</Button>
-          <Button onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-2" />New Order</Button>
+          <Button onClick={openCreateDialog}>
+            <Plus className="h-4 w-4 mr-2" />New Order
+          </Button>
         </div>
       </div>
 
