@@ -27,6 +27,7 @@ const statusVariants = {
 
 const OrderList = () => {
   const { token, user } = useAuth();
+  const [selectedProductType, setSelectedProductType] = useState('');
   const { toast } = useToast();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -43,6 +44,17 @@ const OrderList = () => {
   const [products, setProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState('');
   const [productMeta, setProductMeta] = useState({ sizes: [], papers: [], costItems: [] });
+  
+
+ 
+  const productFieldConfig = {
+    'VISITING_CARD': ['LAMINATION', 'UV', 'FOIL', 'DIE', 'TEXTURE'],
+    'BROCHURE': ['LAMINATION', 'UV', 'FOIL'],
+    'FLYER': ['LAMINATION', 'UV'],
+    'BANNER': ['LAMINATION'],
+    // Add more product types as needed
+  };
+
   const costItemTypeMap = React.useMemo(() => ({
     FOLDING: 'foldingType',
     LAMINATION: 'laminationType',
@@ -59,6 +71,7 @@ const OrderList = () => {
     { enum: 'DIE', label: 'Die', field: costItemTypeMap.DIE },
     { enum: 'TEXTURE', label: 'Texture', field: costItemTypeMap.TEXTURE },
   ], [costItemTypeMap]);
+  
   const [orderForm, setOrderForm] = useState({
     productName: '',
     width: '',
@@ -76,6 +89,39 @@ const OrderList = () => {
     quality: '',
     fileUrl: ''
   });
+
+  const resetOrderForm = () => {
+  setOrderForm({ 
+    productName: '', 
+    width: '', 
+    height: '', 
+    quantity: '', 
+    paperConfig: '', 
+    printingSide: '', 
+    foldingType: '', 
+    laminationType: '', 
+    uvType: '', 
+    foilType: '', 
+    dieType: '', 
+    textureType: '', 
+    additionalNote: '', 
+    quality: '', 
+    fileUrl: '' 
+  });
+
+  setSelectedProduct('');
+  setProductMeta({ sizes: [], papers: [], costItems: [] }); // Reset
+  // setFiles([]);
+
+};
+
+
+
+const openCreateDialog = () => {
+  resetOrderForm(); // Reset form first
+  setCreateOpen(true); // Then open dialog
+};
+
   const [uploadingFile, setUploadingFile] = useState(false);
   const [filePreview, setFilePreview] = useState(null);
   // Automation state
@@ -103,8 +149,26 @@ const OrderList = () => {
   // Update order dialog state
   const [updateOpen, setUpdateOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
-  const [updateQuantity, setUpdateQuantity] = useState('');
   const [orderToUpdate, setOrderToUpdate] = useState(null);
+  const [updateForm, setUpdateForm] = useState({
+    quantity: '',
+    width: '',
+    height: '',
+    paperConfig: '',
+    printingSide: '',
+    foldingType: '',
+    laminationType: '',
+    uvType: '',
+    foilType: '',
+    dieType: '',
+    textureType: '',
+    additionalNote: '',
+    fileUrl: '',
+    quality: ''
+  });
+  const [updateFilePreview, setUpdateFilePreview] = useState(null);
+  const [updateProductMeta, setUpdateProductMeta] = useState({ sizes: [], papers: [], costItems: [] });
+  const [uploadingUpdateFile, setUploadingUpdateFile] = useState(false);
 
   // Order details dialog state
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -125,13 +189,16 @@ const OrderList = () => {
     const res = await axios.get(`${apiUrl}/api/v1/order/status/${status}`, { headers: { Authorization: `Bearer ${token}` } });
     if (!res.data.success) throw new Error(res.data.message);
     return res.data.data || [];
-  }, [token]);
+  }, [token, apiUrl]);
 
   const getOrders = useCallback(async () => {
     try {
       setLoading(true);
+      console.log('Getting orders with status:', filterStatus); // Log 5
       const list = await getOrdersByStatus(filterStatus);
+      console.log('Orders fetched:', list); // Log 6
       setOrders(list);
+      console.log('Orders state updated'); // Log 7
     } catch (err) {
       toast({ title: 'Error', description: err.message || 'Failed to load orders', variant: 'destructive' });
     } finally { setLoading(false); }
@@ -164,10 +231,16 @@ const OrderList = () => {
     } finally { setLoadingSheets(false); }
   }, [token, toast]);
 
-  useEffect(() => { getOrders(); if (user?.userType === 'admin') { getStaffUsers(); } getProducts(); }, [getOrders, getStaffUsers, getProducts, user]);
+  useEffect(() => {
+     getOrders();
+     if (user?.userType === 'admin') {
+       getStaffUsers(); 
+      }
+      getProducts();
+     }, [getOrders, getStaffUsers, getProducts, user]);
 
   // Refetch when filter changes
-  useEffect(() => { getOrders(); }, [filterStatus, getOrders]);
+  // useEffect(() => { getOrders(); }, [filterStatus, getOrders]);
 
   const calculateOrderPrice = useCallback(() => {
     if (!orderForm.quantity || !selectedProduct) return '0';
@@ -314,12 +387,25 @@ const OrderList = () => {
           quality: Number(orderForm.quality)
         }
       };
+
+      console.log('Creating order...'); // Log 1
+
       const res = await axios.post(`${apiUrl}/api/v1/order`, payload, { headers: { Authorization: `Bearer ${token}` } });
+
+      console.log('Response:', res.data); // Log 2  
+
       if (res.data.success) {
         toast({ title: 'Order Created', description: 'Order created successfully' });
-        setCreateOpen(false);
-        setOrderForm({ productName: '', width: '', height: '', quantity: '', paperConfig: '', printingSide: '', foldingType: '', laminationType: '', uvType: '', foilType: '', dieType: '', textureType: '', additionalNote: '', quality: '', fileUrl: '' });
-        getOrders();
+         resetOrderForm(); // Reset form
+      setCreateOpen(false); // Close dialog
+      await getOrders(); // Refresh orders list
+        // setOrderForm({ productName: '', width: '', height: '', quantity: '', paperConfig: '', printingSide: '', foldingType: '', laminationType: '', uvType: '', foilType: '', dieType: '', textureType: '', additionalNote: '', quality: '', fileUrl: '' });
+
+         console.log('Before getOrders'); // Log 3
+         await getOrders(); // Make it await
+      console.log('After getOrders'); // Log 4
+
+        // getOrders();
       } else throw new Error(res.data.message);
     } catch (err) { toast({ title: 'Error', description: err.message || 'Creation failed', variant: 'destructive' }); }
     finally { setCreating(false); }
@@ -476,28 +562,143 @@ const OrderList = () => {
   const openUpdate = (order, e) => {
     if (e) e.stopPropagation();
     setOrderToUpdate(order);
-    setUpdateQuantity(order?.orderDetails?.quantity?.toString() || '');
+
+
+    // Find the product to get metadata
+    const prod = products.find(p => p.name === order.orderDetails?.productName);
+    if (prod) {
+      setUpdateProductMeta({
+        sizes: prod.availableSizes || [],
+        papers: prod.availablePapers || [],
+        costItems: prod.costItems || []
+      });
+    }
+
+    // Pre-fill the form with existing order data
+    const od = order?.orderDetails || {};
+    setUpdateForm({
+      quantity: od.quantity?.toString() || '',
+      width: od.width?.toString() || '',
+      height: od.height?.toString() || '',
+      paperConfig: od.paperConfig || '',
+      printingSide: od.printingSide || '',
+      foldingType: od.foldingType || '',
+      laminationType: od.laminationType || '',
+      uvType: od.uvType || '',
+      foilType: od.foilType || '',
+      dieType: od.dieType || '',
+      textureType: od.textureType || '',
+      additionalNote: od.additionalNote || '',
+      fileUrl: od.fileUrl || '',
+      quality: od.quality?.toString() || ''
+    });
+
+    // Set file preview if exists
+    if (od.fileUrl) {
+      setUpdateFilePreview(od.fileUrl);
+    }
+
     setUpdateOpen(true);
+  };
+
+  const handleUpdateField = (e) => {
+    const { name, value } = e.target;
+    setUpdateForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const uploadUpdateDesignFile = async (file) => {
+    if (!file) return;
+    try {
+      setUploadingUpdateFile(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await axios.post(`${apiUrl}/api/v1/order/upload`, formData, {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
+      });
+      if (res.data.success) {
+        setUpdateForm(prev => ({
+          ...prev,
+          fileUrl: res.data.data.fileUrl,
+          quality: res.data.data.imageValidationData.metadata.density
+        }));
+        toast({ title: 'Uploaded', description: 'Design file uploaded' });
+      } else throw new Error(res.data.message);
+    } catch (err) {
+      toast({ title: 'Error', description: err.message || 'Upload failed', variant: 'destructive' });
+    } finally {
+      setUploadingUpdateFile(false);
+    }
   };
 
   const submitUpdate = async (e) => {
     e.preventDefault();
     if (!orderToUpdate?._id) return;
-    const qty = Number(updateQuantity);
-    if (!qty || qty <= 0) { toast({ title: 'Validation', description: 'Enter a valid quantity', variant: 'destructive' }); return; }
+
+    // Validation
+    const qty = Number(updateForm.quantity);
+    if (!qty || qty <= 0) {
+      toast({ title: 'Validation', description: 'Enter a valid quantity', variant: 'destructive' });
+      return;
+    }
+    if (!updateForm.paperConfig) {
+      toast({ title: 'Validation', description: 'Please select paper type', variant: 'destructive' });
+      return;
+    }
+    if (!updateForm.printingSide) {
+      toast({ title: 'Validation', description: 'Please select printing side', variant: 'destructive' });
+      return;
+    }
+    if (!updateForm.fileUrl) {
+      toast({ title: 'Validation', description: 'Please upload a design file', variant: 'destructive' });
+      return;
+    }
+
     try {
       setUpdating(true);
-      const payload = { currentStatus: 'ACTIVE', orderDetails: { quantity: qty } };
-      const res = await axios.patch(`${apiUrl}/api/v1/order/${orderToUpdate._id}/update`, payload, { headers: { Authorization: `Bearer ${token}` } });
+      const payload = {
+        currentStatus: 'ACTIVE',
+        orderDetails: {
+          productName: orderToUpdate.orderDetails.productName,
+          quantity: Number(updateForm.quantity),
+          width: Number(updateForm.width),
+          height: Number(updateForm.height),
+          paperConfig: updateForm.paperConfig,
+          printingSide: updateForm.printingSide,
+          foldingType: updateForm.foldingType,
+          laminationType: updateForm.laminationType,
+          uvType: updateForm.uvType,
+          foilType: updateForm.foilType,
+          dieType: updateForm.dieType,
+          textureType: updateForm.textureType,
+          additionalNote: updateForm.additionalNote,
+          fileUrl: updateForm.fileUrl,
+          quality: Number(updateForm.quality)
+        }
+      };
+
+      const res = await axios.patch(
+        `${apiUrl}/api/v1/order/${orderToUpdate._id}/update`,
+        payload,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
       if (res.data.success) {
-        toast({ title: 'Order Updated', description: 'Quantity updated and status set to ACTIVE' });
+        toast({ title: 'Order Updated', description: 'Order updated and status set to ACTIVE' });
         setUpdateOpen(false);
         setOrderToUpdate(null);
+
+        // Cleanup
+        setUpdateOpen(false);
+        // setUpdateQuantity(''); // Clear the quantity
+        setOrderToUpdate(null);
+
         getOrders();
       } else throw new Error(res.data.message);
     } catch (err) {
       toast({ title: 'Error', description: err.message || 'Failed to update order', variant: 'destructive' });
-    } finally { setUpdating(false); }
+    } finally {
+      setUpdating(false);
+    }
   };
 
   // Order details dialog helpers
@@ -566,7 +767,9 @@ const OrderList = () => {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={getOrders} disabled={loading}><RefreshCcw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />Refresh</Button>
-          <Button onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-2" />New Order</Button>
+          <Button onClick={openCreateDialog}>
+            <Plus className="h-4 w-4 mr-2" />New Order
+          </Button>
         </div>
       </div>
 
@@ -645,11 +848,11 @@ const OrderList = () => {
                   className={`hover:bg-gray-50 cursor-pointer ${selectedForAutomation.includes(o._id) ? 'bg-blue-50/50 ring-1 ring-blue-100' : ''}`}
                   onClick={() => openDetails(o)}
                 >
-                  <TableCell className="w-8" onClick={(e) => e.stopPropagation()}>
+                  <TableCell className="w-8">
                     <Checkbox
-                      disabled={o.currentStatus !== 'ACTIVE'}
                       checked={selectedForAutomation.includes(o._id)}
                       onCheckedChange={() => toggleOrderSelect(o._id)}
+                      onClick={(e) => e.stopPropagation()}
                       aria-label={`Select order ${o._id}`}
                     />
                   </TableCell>
@@ -758,99 +961,131 @@ const OrderList = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Create Order Dialog with Order Summary */}
+      {/* Create Order Dialog with Single Column Layout */}
+      {/* Create Order Dialog with Dynamic Field Display */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>New Order</DialogTitle></DialogHeader>
-          <form onSubmit={submitCreateOrder}>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Main Form - 2/3 width */}
-              <div className="lg:col-span-2 space-y-6">
-                <Card>
-                  <CardHeader><CardTitle>Product Details</CardTitle></CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2 md:col-span-1">
-                        <Label>Product *</Label>
-                        <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                          <SelectTrigger><SelectValue placeholder="Select Product" /></SelectTrigger>
-                          <SelectContent>
-                            {products.map(p => <SelectItem key={p._id} value={p._id}>{p.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Size *</Label>
-                        <Select onValueChange={(val) => {
-                          const size = productMeta.sizes.find(s => s._id === val);
-                          if (size) {
-                            setOrderForm(prev => ({ ...prev, width: size.width, height: size.height }));
-                          }
-                        }}>
-                          <SelectTrigger><SelectValue placeholder="Select Size" /></SelectTrigger>
-                          <SelectContent>
-                            {productMeta.sizes.map(sz => (
-                              <SelectItem key={sz._id} value={sz._id}>
-                                {sz.name} ({sz.width}x{sz.height})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Paper *</Label>
-                        <Select onValueChange={(val) => setOrderForm(prev => ({ ...prev, paperConfig: val }))}>
-                          <SelectTrigger><SelectValue placeholder="Select Paper" /></SelectTrigger>
-                          <SelectContent>
-                            {productMeta.papers.map(p => (
-                              <SelectItem key={p._id} value={p.type + '-' + p.gsm}>
-                                {p.type} {p.gsm}gsm
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Quantity *</Label>
-                        <Input
-                          type="number"
-                          name="quantity"
-                          value={orderForm.quantity}
-                          onChange={handleOrderField}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Printing Side *</Label>
-                        <Select
-                          value={orderForm.printingSide}
-                          onValueChange={(val) => setOrderForm(p => ({ ...p, printingSide: val }))}
-                        >
-                          <SelectTrigger><SelectValue placeholder="Select Printing Side" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="SINGLE">Single</SelectItem>
-                            <SelectItem value="DOUBLE">Double</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+          <div onSubmit={submitCreateOrder} className="space-y-6">
+            <Card>
+              <CardHeader><CardTitle>Product Details</CardTitle></CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-2">
+                    <Label>Product *</Label>
+                    <Select
+                      value={selectedProduct}
+                      onValueChange={(val) => {
+                        setSelectedProduct(val);
+                        // Find and set product type for dynamic field filtering
+                        const product = products.find(p => p._id === val);
+                        if (product) {
+                          setSelectedProductType(product.type); // You'll need to add this state
+                          setOrderForm(prev => ({ ...prev, productName: product.name }));
+                        }
+                      }}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select Product" /></SelectTrigger>
+                      <SelectContent>
+                        {products.map(p => <SelectItem key={p._id} value={p._id}>{p.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Size *</Label>
+                    <Select onValueChange={(val) => {
+                      const size = productMeta.sizes.find(s => s._id === val);
+                      if (size) {
+                        setOrderForm(prev => ({ ...prev, width: size.width, height: size.height }));
+                      }
+                    }}>
+                      <SelectTrigger><SelectValue placeholder="Select Size" /></SelectTrigger>
+                      <SelectContent>
+                        {productMeta.sizes.map(sz => (
+                          <SelectItem key={sz._id} value={sz._id}>
+                            {sz.name} ({sz.width}x{sz.height})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Quantity *</Label>
+                    <Input
+                      type="number"
+                      name="quantity"
+                      value={orderForm.quantity}
+                      onChange={handleOrderField}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Paper *</Label>
+                    <Select onValueChange={(val) => setOrderForm(prev => ({ ...prev, paperConfig: val }))}>
+                      <SelectTrigger><SelectValue placeholder="Select Paper" /></SelectTrigger>
+                      <SelectContent>
+                        {productMeta.papers.map(p => (
+                          <SelectItem key={p._id} value={p.type + '-' + p.gsm}>
+                            {p.type} {p.gsm}gsm
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                {/* Finishing Options */}
+                  <div className="space-y-2">
+                    <Label>Printing Side *</Label>
+                    <Select
+                      value={orderForm.printingSide}
+                      onValueChange={(val) => setOrderForm(p => ({ ...p, printingSide: val }))}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select Printing Side" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="SINGLE">Single</SelectItem>
+                        <SelectItem value="DOUBLE">Double</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Finishing Options - Only renders if product is selected and has available options */}
+            {selectedProduct && (() => {
+              // Define which cost items are available for each product type
+              const productFieldConfig = {
+                'VISITING_CARD': ['LAMINATION', 'UV', 'FOIL', 'DIE', 'TEXTURE'],
+                'BROCHURE': ['LAMINATION', 'UV', 'FOIL'],
+                'FLYER': ['LAMINATION', 'UV'],
+                'BANNER': ['LAMINATION'],
+                // Add more product types as needed
+              };
+
+              // Get available cost items for current product
+              const availableCostItems = productFieldConfig[selectedProductType] ||
+                ['LAMINATION', 'UV', 'FOIL', 'DIE', 'TEXTURE']; // default all
+
+              // Filter cost item definitions based on product type
+              const visibleCostItems = costItemDefinitions.filter(def =>
+                availableCostItems.includes(def.enum)
+              );
+
+              // Only show finishing options card if there are visible items with actual data
+              const hasVisibleItems = visibleCostItems.some(def =>
+                productMeta.costItems.filter(c => c.type === def.enum).length > 0
+              );
+
+              if (!hasVisibleItems) return null;
+
+              return (
                 <Card>
                   <CardHeader><CardTitle>Finishing Options</CardTitle></CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {costItemDefinitions.map(def => {
+                    <div className="grid grid-cols-1 gap-4">
+                      {visibleCostItems.map(def => {
                         const items = productMeta.costItems.filter(c => c.type === def.enum);
-                        if (!items.length) return (
-                          <div key={def.enum} className="space-y-2 opacity-50 cursor-not-allowed">
-                            <Label>{def.label}</Label>
-                            <Select disabled>
-                              <SelectTrigger><SelectValue placeholder="Not Available" /></SelectTrigger>
-                            </Select>
-                          </div>
-                        );
+                        // Skip rendering if no items available
+                        if (!items.length) return null;
+
                         return (
                           <div key={def.enum} className="space-y-2">
                             <Label>{def.label} *</Label>
@@ -871,101 +1106,99 @@ const OrderList = () => {
                     </div>
                   </CardContent>
                 </Card>
+              );
+            })()}
 
-                {/* Additional Notes & File Upload */}
-                <Card>
-                  <CardHeader><CardTitle>Additional Information</CardTitle></CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Additional Note *</Label>
-                      <textarea
-                        name="additionalNote"
-                        value={orderForm.additionalNote}
-                        onChange={handleOrderField}
-                        className="w-full border rounded-md p-2 text-sm"
-                        rows={3}
-                        placeholder="Any special instructions or requirements..."
-                      />
+            {/* Additional Notes & File Upload */}
+            <Card>
+              <CardHeader><CardTitle>Additional Information</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Additional Note *</Label>
+                  <textarea
+                    name="additionalNote"
+                    value={orderForm.additionalNote}
+                    onChange={handleOrderField}
+                    className="w-full border rounded-md p-2 text-sm"
+                    rows={3}
+                    placeholder="Any special instructions or requirements..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Design File *</Label>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const f = e.target.files[0];
+                      if (f) {
+                        if (filePreview) URL.revokeObjectURL(filePreview);
+                        setFilePreview(URL.createObjectURL(f));
+                        uploadDesignFile(f);
+                      }
+                    }}
+                  />
+                  {uploadingFile && (
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span>Uploading...</span>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Design File *</Label>
-                      <Input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const f = e.target.files[0];
-                          if (f) {
+                  )}
+                  {orderForm.fileUrl && (
+                    <p className="text-xs text-green-600 truncate">
+                      ✓ Uploaded: {orderForm.fileUrl.split('/').pop()}
+                    </p>
+                  )}
+                  {filePreview && (
+                    <div className="mt-2 border rounded-md p-2 bg-gray-50">
+                      <p className="text-xs text-gray-600 mb-1">Preview</p>
+                      <img
+                        src={filePreview}
+                        alt="Design preview"
+                        className="max-h-48 rounded object-contain mx-auto"
+                      />
+                      <div className="flex justify-end mt-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => {
                             if (filePreview) URL.revokeObjectURL(filePreview);
-                            setFilePreview(URL.createObjectURL(f));
-                            uploadDesignFile(f);
-                          }
-                        }}
-                      />
-                      {uploadingFile && (
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                          <span>Uploading...</span>
-                        </div>
-                      )}
-                      {orderForm.fileUrl && (
-                        <p className="text-xs text-green-600 truncate">
-                          ✓ Uploaded: {orderForm.fileUrl.split('/').pop()}
-                        </p>
-                      )}
-                      {filePreview && (
-                        <div className="mt-2 border rounded-md p-2 bg-gray-50">
-                          <p className="text-xs text-gray-600 mb-1">Preview</p>
-                          <img
-                            src={filePreview}
-                            alt="Design preview"
-                            className="max-h-48 rounded object-contain mx-auto"
-                          />
-                          <div className="flex justify-end mt-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7 px-2 text-xs"
-                              onClick={() => {
-                                if (filePreview) URL.revokeObjectURL(filePreview);
-                                setFilePreview(null);
-                                setOrderForm(prev => ({ ...prev, fileUrl: '', quality: '' }));
-                              }}
-                            >
-                              Remove
-                            </Button>
-                          </div>
-                        </div>
-                      )}
+                            setFilePreview(null);
+                            setOrderForm(prev => ({ ...prev, fileUrl: '', quality: '' }));
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Order Summary Sidebar - 1/3 width */}
-              <div className="lg:col-span-1">
-                <OrderSummary
-                  formData={{
-                    productType: orderForm.productName,
-                    size: orderForm.width && orderForm.height
-                      ? `${orderForm.width} x ${orderForm.height} mm`
-                      : '',
-                    paperType: orderForm.paperConfig
-                      ? orderForm.paperConfig.replace('-', ' ')
-                      : '',
-                    quantity: orderForm.quantity,
-                    printingSide: orderForm.printingSide
-                  }}
-                  files={orderForm.fileUrl ? [{ name: 'Design File' }] : []}
-                  calculateEstimatedPrice={calculateOrderPrice}
-                  onSubmit={submitCreateOrder}
-                  isLoading={creating}
-                  submitButtonText="Create Order"
-                  showNotes={true}
-                />
-              </div>
-            </div>
-          </form>
+            {/* Order Summary at bottom */}
+            <OrderSummary
+              formData={{
+                productType: orderForm.productName,
+                size: orderForm.width && orderForm.height
+                  ? `${orderForm.width} x ${orderForm.height} mm`
+                  : '',
+                paperType: orderForm.paperConfig
+                  ? orderForm.paperConfig.replace('-', ' ')
+                  : '',
+                quantity: orderForm.quantity,
+                printingSide: orderForm.printingSide
+              }}
+              files={orderForm.fileUrl ? [{ name: 'Design File' }] : []}
+              calculateEstimatedPrice={calculateOrderPrice}
+              onSubmit={submitCreateOrder}
+              isLoading={creating}
+              submitButtonText="Create Order"
+              showNotes={true}
+            />
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -1112,24 +1345,238 @@ const OrderList = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Update Order Dialog */}
+      {/* Update Order Dialog - COMPLETE WITH ALL FIELDS */}
       <Dialog open={updateOpen} onOpenChange={setUpdateOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Update Order</DialogTitle></DialogHeader>
-          <form onSubmit={submitUpdate} className="space-y-4">
-            <div className="text-sm">
-              <p className="text-gray-600">Order <span className="font-mono">{orderToUpdate?._id?.slice(-8)}</span></p>
-              <p className="text-gray-600">Product: <span className="font-medium">{orderToUpdate?.orderDetails?.productName}</span></p>
-              <p className="text-gray-600">Current Qty: <span className="font-medium">{orderToUpdate?.orderDetails?.quantity}</span></p>
-            </div>
-            <div className="space-y-2">
-              <Label>New Quantity</Label>
-              <Input type="number" value={updateQuantity} onChange={(e) => setUpdateQuantity(e.target.value)} min={1} />
-              <p className="text-[11px] text-gray-500">Updating will set status to <span className="font-semibold">ACTIVE</span> so you can re-run automation.</p>
-            </div>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Update Order</DialogTitle>
+            <p className="text-sm text-gray-600">
+              Order ID: <span className="font-mono">{orderToUpdate?._id?.slice(-8)}</span>
+            </p>
+          </DialogHeader>
+
+          <form onSubmit={submitUpdate} className="space-y-6">
+            <Card>
+              <CardHeader><CardTitle>Product Details</CardTitle></CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 gap-4">
+                  {/* Product Name (Read-only) */}
+                  <div className="space-y-2">
+                    <Label>Product</Label>
+                    <Input
+                      value={orderToUpdate?.orderDetails?.productName || ''}
+                      disabled
+                      className="bg-gray-50"
+                    />
+                    <p className="text-xs text-gray-500">Product cannot be changed</p>
+                  </div>
+
+                  {/* Size Selection */}
+                  <div className="space-y-2">
+                    <Label>Size *</Label>
+                    <Select
+                      value={`${updateForm.width}x${updateForm.height}`}
+                      onValueChange={(val) => {
+                        const size = updateProductMeta.sizes.find(s => `${s.width}x${s.height}` === val);
+                        if (size) {
+                          setUpdateForm(prev => ({
+                            ...prev,
+                            width: size.width,
+                            height: size.height
+                          }));
+                        }
+                      }}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select Size" /></SelectTrigger>
+                      <SelectContent>
+                        {updateProductMeta.sizes.map(sz => (
+                          <SelectItem key={sz._id} value={`${sz.width}x${sz.height}`}>
+                            {sz.name} ({sz.width}x{sz.height})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Paper Type */}
+                  <div className="space-y-2">
+                    <Label>Paper *</Label>
+                    <Select
+                      value={updateForm.paperConfig}
+                      onValueChange={(val) => setUpdateForm(prev => ({ ...prev, paperConfig: val }))}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select Paper" /></SelectTrigger>
+                      <SelectContent>
+                        {updateProductMeta.papers.map(p => (
+                          <SelectItem key={p._id} value={p.type + '-' + p.gsm}>
+                            {p.type} {p.gsm}gsm
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Quantity */}
+                  <div className="space-y-2">
+                    <Label>Quantity *</Label>
+                    <Input
+                      type="number"
+                      name="quantity"
+                      value={updateForm.quantity}
+                      onChange={handleUpdateField}
+                      min={1}
+                    />
+                  </div>
+
+                  {/* Printing Side */}
+                  <div className="space-y-2">
+                    <Label>Printing Side *</Label>
+                    <Select
+                      value={updateForm.printingSide}
+                      onValueChange={(val) => setUpdateForm(p => ({ ...p, printingSide: val }))}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select Printing Side" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="SINGLE">Single</SelectItem>
+                        <SelectItem value="DOUBLE">Double</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Finishing Options */}
+            <Card>
+              <CardHeader><CardTitle>Finishing Options</CardTitle></CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 gap-4">
+                  {costItemDefinitions.map(def => {
+                    const items = updateProductMeta.costItems.filter(c => c.type === def.enum);
+                    if (!items.length) return (
+                      <div key={def.enum} className="space-y-2 opacity-50 cursor-not-allowed">
+                        <Label>{def.label}</Label>
+                        <Select disabled>
+                          <SelectTrigger><SelectValue placeholder="Not Available" /></SelectTrigger>
+                        </Select>
+                      </div>
+                    );
+                    return (
+                      <div key={def.enum} className="space-y-2">
+                        <Label>{def.label} *</Label>
+                        <Select
+                          value={updateForm[def.field]}
+                          onValueChange={val => setUpdateForm(p => ({ ...p, [def.field]: val }))}
+                        >
+                          <SelectTrigger><SelectValue placeholder={`Select ${def.label}`} /></SelectTrigger>
+                          <SelectContent>
+                            {items.map(ci => (
+                              <SelectItem key={ci._id} value={ci.value}>{ci.value}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Additional Notes & File Upload */}
+            <Card>
+              <CardHeader><CardTitle>Additional Information</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Additional Note *</Label>
+                  <textarea
+                    name="additionalNote"
+                    value={updateForm.additionalNote}
+                    onChange={handleUpdateField}
+                    className="w-full border rounded-md p-2 text-sm"
+                    rows={3}
+                    placeholder="Any special instructions or requirements..."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Design File *</Label>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const f = e.target.files[0];
+                      if (f) {
+                        if (updateFilePreview && updateFilePreview.startsWith('blob:')) {
+                          URL.revokeObjectURL(updateFilePreview);
+                        }
+                        setUpdateFilePreview(URL.createObjectURL(f));
+                        uploadUpdateDesignFile(f);
+                      }
+                    }}
+                  />
+                  {uploadingUpdateFile && (
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span>Uploading...</span>
+                    </div>
+                  )}
+                  {updateForm.fileUrl && (
+                    <p className="text-xs text-green-600 truncate">
+                      ✓ File: {updateForm.fileUrl.split('/').pop()}
+                    </p>
+                  )}
+                  {updateFilePreview && (
+                    <div className="mt-2 border rounded-md p-2 bg-gray-50">
+                      <p className="text-xs text-gray-600 mb-1">Preview</p>
+                      <img
+                        src={updateFilePreview}
+                        alt="Design preview"
+                        className="max-h-48 rounded object-contain mx-auto"
+                      />
+                      <div className="flex justify-end mt-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => {
+                            if (updateFilePreview && updateFilePreview.startsWith('blob:')) {
+                              URL.revokeObjectURL(updateFilePreview);
+                            }
+                            setUpdateFilePreview(null);
+                            setUpdateForm(prev => ({ ...prev, fileUrl: '', quality: '' }));
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                  ⚠️ Updating will set status to <span className="font-semibold">ACTIVE</span> so you can re-run automation.
+                </p>
+              </CardContent>
+            </Card>
+
             <DialogFooter className="flex gap-2 justify-end">
-              <Button type="button" variant="outline" onClick={() => setUpdateOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={updating}>{updating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Update'}</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setUpdateOpen(false);
+                  if (updateFilePreview && updateFilePreview.startsWith('blob:')) {
+                    URL.revokeObjectURL(updateFilePreview);
+                  }
+                  setUpdateFilePreview(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updating}>
+                {updating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Update Order'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -1148,7 +1595,10 @@ const OrderList = () => {
                   <CardHeader><CardTitle className="text-base">Overview</CardTitle></CardHeader>
                   <CardContent className="text-sm space-y-1">
                     <p><span className="text-gray-600">Order:</span> <span className="font-mono">{detailsOrder._id}</span></p>
-                    <p><span className="text-gray-600">Status:</span> <Badge className="ml-1">{detailsOrder.currentStatus}</Badge></p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-600">Status:</span>
+                      <Badge>{detailsOrder.currentStatus}</Badge>
+                    </div>
                     <p><span className="text-gray-600">Created:</span> {new Date(detailsOrder.createdAt).toLocaleString()}</p>
                     <p><span className="text-gray-600">Raised By:</span> {detailsOrder.raisedBy?.username || '—'}</p>
                     <p><span className="text-gray-600">Assigned To:</span> {detailsOrder.raisedTo?.username || '—'}</p>

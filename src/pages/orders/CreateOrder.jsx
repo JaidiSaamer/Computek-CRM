@@ -69,6 +69,8 @@ const CreateOrder = () => {
     setFiles(files.filter(f => f.id !== fileId));
   };
 
+  
+
   const calculateEstimatedPrice = () => {
     const quantity = parseInt(formData.quantity) || 0;
     const basePrice = {

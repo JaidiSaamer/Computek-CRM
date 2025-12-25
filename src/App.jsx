@@ -93,11 +93,11 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
 
-      <Route path="/orders/create" element={
+      {/* <Route path="/orders/create" element={
         <ProtectedRoute>
           <CreateOrder />
         </ProtectedRoute>
-      } />
+      } /> */}
 
       <Route path="/orders" element={
         <ProtectedRoute>
