@@ -308,7 +308,7 @@ const CreateOrder = () => {
                         id="file-upload"
                         type="file"
                         multiple
-                        accept=".pdf,.png,.jpg,.jpeg"
+                        accept=".pdf,.png,.jpg,.jpeg,.tiff"
                         onChange={handleFileUpload}
                         className="hidden"
                       />

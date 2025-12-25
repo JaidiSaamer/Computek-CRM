@@ -58,7 +58,6 @@ const LoginForm = () => {
         });
       }
     } catch (e) {
-      console.log(e)
       toast({
         title: "Error",
         description: "An error occurred during login",

@@ -30,12 +30,6 @@ const Downloads = () => {
   const { toast } = useToast();
   const { user, token } = useAuth();
 
-  console.log('=== USER DEBUG ===');
-  console.log('User object:', user);
-  console.log('User role:', user?.role);
-  console.log('Is client?:', user?.role === 'client');
-  console.log('==================');
-
   const ALLOWED_MIME = ['image/jpeg', 'image/png', 'application/pdf', 'application/zip'];
 
   const fetchDownloads = async () => {

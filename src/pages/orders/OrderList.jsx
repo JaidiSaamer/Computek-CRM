@@ -540,6 +540,14 @@ const OrderList = () => {
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const nameSafe = (d.productName || 'order').replace(/[^a-z0-9-]+/gi, '_');
+
+    const a2 = document.createElement("a");
+    a2.href = d.fileUrl;
+    a2.download = `${nameSafe}_designfile`;
+    document.body.appendChild(a2);
+    a2.click();
+    a2.remove();
+
     const a = document.createElement('a');
     a.href = url;
     a.download = `${nameSafe}_${order._id.slice(-6)}.txt`;
