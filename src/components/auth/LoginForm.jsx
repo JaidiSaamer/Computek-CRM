@@ -74,7 +74,7 @@ const LoginForm = () => {
         {/* Logo and Header */}
         <div className="flex flex-col justify-center items-center">
           <img
-            src="./src/assets/CP_logo.png"
+            src="/CP_logo.png"
             alt="Computek Printing"
             className="mx-auto h-16 rounded-xl w-auto object-contain mb-4"
           />

@@ -145,7 +145,7 @@ const SignupForm = () => {
         {/* Logo and Header */}
         <div className="text-center">
           <img
-            src="./src/assets/CP_logo.png"
+            src="/CP_logo.png"
             alt="Computek Printing"
             className="mx-auto h-16 w-auto object-contain mb-4"
           />
